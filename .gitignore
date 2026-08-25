@@ -1,0 +1,12 @@
+# Copyright (c) 2026 Jevante Boxley / QCPUNKS SECTOR
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+*.log
+.lattice/
+.DS_Store
+.directory

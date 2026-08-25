@@ -1,0 +1,7 @@
+{
+  "name": "lattice-demo-fixture",
+  "private": true,
+  "scripts": {
+    "test": "node test.js"
+  }
+}
