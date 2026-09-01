@@ -14,6 +14,14 @@ import * as actions from "./actions.js";
 import { colorizeDiff } from "../ui/diff.js";
 import { theme } from "../ui/theme.js";
 import { displayName } from "../mcp/manager.js";
+import { runArena, type ArenaParticipantSpec } from "../arena/orchestrator.js";
+import { ArenaLiveView, formatArenaStatus } from "../ui/arena-live.js";
+import {
+  runArenaCommand,
+  renderScorecard,
+  parseArenaSlashArgs,
+  isArenaSubcommand,
+} from "./commands/arena.js";
 
 export interface ReplState {
   cfg: LatticeConfig;
@@ -52,6 +60,12 @@ const HELP_TEXT = `Slash commands:
   /run                    start the project's dev/start script
   /ps                     list background processes
   /stop <id>              stop a background process
+  /arena "<task>" --models a,b[,c] [--tests "cmd"]
+                           race models on the same task in isolated worktrees
+  /arena diff [label]      review a participant's actual diff before picking
+  /arena pick <label>      merge a participant's work into your branch
+  /arena list              show past and open arena runs
+  /arena clean             discard the current open run without merging
   /quit, /exit             exit lattice`;
 
 export async function handleSlashCommand(input: string, state: ReplState): Promise<SlashResult> {
@@ -293,6 +307,44 @@ export async function handleSlashCommand(input: string, state: ReplState): Promi
         return "handled";
       }
       console.log(actions.stopProcessById(arg));
+      return "handled";
+    }
+
+    case "/arena": {
+      const { positional, models, tests } = parseArenaSlashArgs(arg);
+
+      if (isArenaSubcommand(positional, models)) {
+        await runArenaCommand(cfg, positional, models, tests);
+        return "handled";
+      }
+
+      const promptText = positional.join(" ").trim();
+      if (!promptText || !models) {
+        console.log(theme.error('Usage: /arena "<what to do>" --models model-a,model-b [--tests "npm test"]'));
+        return "handled";
+      }
+      const participants: ArenaParticipantSpec[] = models.split(",").map((m) => ({ model: m.trim() }));
+      if (participants.length < 2) {
+        console.log(theme.error("Arena needs at least 2 models — got 1. Pass a comma-separated list, e.g. --models a,b"));
+        return "handled";
+      }
+
+      console.log(theme.dim(`Racing ${participants.length} models on: ${promptText}\n`));
+      const view = new ArenaLiveView(participants.map((p) => p.model));
+      try {
+        const run = await runArena(cfg, promptText, participants, {
+          testCommand: tests,
+          onProgress: (label, event) => view.update(label, formatArenaStatus(label, event)),
+        });
+        view.finish();
+        console.log(renderScorecard(run));
+        console.log(
+          theme.dim(`\n/arena diff [label] to review code, /arena pick <label> to merge, /arena clean to discard.`),
+        );
+      } catch (err) {
+        view.finish();
+        console.log(theme.error((err as Error).message));
+      }
       return "handled";
     }
 

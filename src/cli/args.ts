@@ -11,6 +11,10 @@ export interface ParsedArgs {
   workspace?: string;
   session?: string;
   format?: string;
+  /** Comma-separated model ids for `arena` to race. */
+  models?: string;
+  /** Shell command arena runs in each worktree to score participants. */
+  tests?: string;
   debug: boolean;
   yes: boolean; // skip confirmations where a flag-based override makes sense (still respects destructive/critical gating)
 }
@@ -21,6 +25,8 @@ const VALUE_FLAGS: Record<string, keyof ParsedArgs> = {
   "--workspace": "workspace",
   "--session": "session",
   "--format": "format",
+  "--models": "models",
+  "--tests": "tests",
 };
 
 export function parseArgs(argv: string[]): ParsedArgs {

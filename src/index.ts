@@ -18,6 +18,7 @@ import * as sessions from "./sessions/index.js";
 import { killAllManagedProcesses } from "./tools/shell.js";
 
 import { runModelsCommand, runDoctorCommand, runMcpCommand } from "./cli/commands/diagnostics.js";
+import { runArenaCommand } from "./cli/commands/arena.js";
 import { runSessionsCommand } from "./cli/commands/sessions.js";
 import { runConfigCommand } from "./cli/commands/config.js";
 import { runSetupCommand } from "./cli/commands/setup.js";
@@ -52,6 +53,7 @@ const KNOWN_COMMANDS = new Set([
   "audit",
   "ask",
   "exec",
+  "arena",
 ]);
 
 async function main(): Promise<number> {
@@ -106,6 +108,8 @@ async function main(): Promise<number> {
       return runStopCommand(parsed.positional[0]);
     case "audit":
       return runAuditCommand(cfg, parsed.positional[0]);
+    case "arena":
+      return runArenaCommand(cfg, parsed.positional, parsed.models, parsed.tests);
     case "ask":
     case "exec": {
       if (!cfg.veniceApiKey) {

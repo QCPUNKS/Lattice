@@ -16,8 +16,9 @@ If that sounds like something you don't wanna do I have designed this tool for a
 
 - **Provider abstraction** with a full **Venice AI** implementation: SSE streaming, tool calling, retries with backoff on 429/5xx, timeouts, cancellation, model capability discovery via `/models`.
 - **Agent loop**: multi-turn model ↔ tool-call ↔ result cycle with configurable iteration/tool-call caps, automatic repeated-failure detection (stops instead of looping on the same failing command), and automatic context compaction as the conversation grows.
-- **19 native tools**: filesystem (read/write/edit/create/delete/list/search/stat/exists/copy/move, ripgrep-backed search), shell (foreground commands + managed background processes with process-group kill), git (status/diff/log/branch/commit), and project inspection.
+- **26 native tools**: filesystem (read/write/edit/create/delete/list/search/stat/exists/copy/move, ripgrep-backed search), shell (foreground commands + managed background processes with process-group kill), git (status/diff/log/branch/commit), and project inspection.
 - **Real MCP client** (stdio + streamable-HTTP) — connects to configure servers, discovers and namespaces their tools, and exposes them to the model alongside the native ones. Project-scoped servers are surfaced and confirmed before Lattice spawns anything from a repo you don't own.
+- **Arena mode**: run the same task across multiple models in parallel, each in its own isolated git worktree, with your test suite run against every result. A live scorecard shows files changed, tokens used, duration, and test outcome per model — then you review the actual diffs and merge only the winner. See [Arena](#arena) below.
 - **Permission system**: `safe`/`normal`/`auto` autonomy modes crossed with a `safe`/`caution`/`destructive`/`critical` command risk classifier — destructive and critical actions always require confirmation, no matter the mode.
 - **Safety boundaries**: filesystem tools can't escape the workspace directory; `.env`/`*.pem`/`*.key`/credential-shaped files are never read without an explicit prompt; tool output is bounded so a runaway command can't blow out the context window.
 - **Sessions**: every conversation persists to `~/.local/share/lattice/sessions/`, resumable with `--session <id>`/`--session latest`, exportable to markdown or JSON.
@@ -75,7 +76,7 @@ Example of how things will look
 │ Provider    Digiworld                                
 │ Workspace   ~/Projects/my-app                              _
 │ Mode        NORMAL                                                  │      
-│ Tools       19 built-in                                                  │ 
+│ Tools       26 built-in                                                  │ 
 ╰────────────────────────────────────
 
 Lattice› Fix the authentication bug and run the tests. then after can you add make these changes to this config file for me?
@@ -97,6 +98,40 @@ lattice mcp test     # connect to every configured MCP server and report status
 ```
 
 Full slash-command reference: type `/help` inside the REPL, or see `docs/terminal-ui.md`.
+
+## Arena
+
+Arena mode pits multiple models against each other on the same task. Each participant gets its own git worktree on its own branch, so they work in full isolation — your working branch is never touched until you explicitly merge a winner.
+
+```text
+Lattice› /arena "Add input validation to the signup form" --models kimi-k2-7-code,qwen3-coder --tests "npm test"
+```
+
+What happens:
+
+1. Lattice verifies your worktree is clean, then creates one worktree + branch per model off the current HEAD.
+2. Every model runs the full agent loop on the task in parallel, with live per-participant progress (tool calls, test runs, errors).
+3. If you passed `--tests`, the command runs inside each worktree after the agent finishes — its exit code feeds the scorecard.
+4. You get a scorecard: files changed, insertions/deletions, tokens used, duration, and tests passed/failed per model.
+
+Then you decide:
+
+```text
+/arena diff [label]      review a participant's actual diff before picking
+/arena pick <label>      merge that participant's work into your branch
+/arena list              show past and open arena runs
+/arena clean             discard the current open run without merging
+```
+
+The same thing works non-interactively:
+
+```bash
+lattice arena "Add input validation to the signup form" --models kimi-k2-7-code,qwen3-coder --tests "npm test"
+lattice arena diff qwen3-coder
+lattice arena pick qwen3-coder
+```
+
+Nothing is merged automatically — the scorecard informs the decision, the diff review makes it, and losing branches are cleaned up on `/arena pick` or `/arena clean`.
 
 ## Security
 
