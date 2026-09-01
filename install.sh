@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2026 Jevante Boxley / QCPUNKS SECTOR
+# Copyright (c) 2026 Jevante Boxley / QCPUNKS
 # SPDX-License-Identifier: Apache-2.0
 
 # Installs Lattice: checks prerequisites, installs dependencies, builds, and

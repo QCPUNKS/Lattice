@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Copyright (c) 2026 Jevante Boxley / QCPUNKS SECTOR
+// Copyright (c) 2026 Jevante Boxley / QCPUNKS
 // SPDX-License-Identifier: Apache-2.0
 
 import * as readline from "node:readline/promises";
