@@ -34,7 +34,8 @@ export type SlashResult = "handled" | "exit" | "not-a-command";
 
 const HELP_TEXT = `Slash commands:
   /help                 show this list
-  /model [id]           show or switch the active model
+  /model                open the model picker (full Venice catalog, select by number)
+  /model <id>           switch directly to a model id
   /models                list Venice models and capabilities
   /status                project + git + agent state summary
   /tools                  list available tools (native + MCP)
@@ -82,20 +83,18 @@ export async function handleSlashCommand(input: string, state: ReplState): Promi
 
     case "/model": {
       if (!arg) {
-        console.log(`Current model: ${theme.bold(cfg.model)}`);
-        return "handled";
+        return runModelPicker(state);
       }
-      cfg.model = arg;
-      runtime.loop.setModel(arg);
-      console.log(theme.success(`Switched model to ${arg}`));
+      await switchModel(state, arg);
       return "handled";
     }
 
     case "/models": {
       const models = await runtime.provider.getModels();
       for (const m of models) {
+        const marker = m.id === cfg.model ? theme.success("● ") : "  ";
         console.log(
-          `${theme.bold(m.id)}  ctx=${m.contextLength ?? "?"}  tools=${m.supportsTools}  reasoning=${m.supportsReasoning}  vision=${m.supportsVision}`,
+          `${marker}${theme.bold(m.id)}  ctx=${formatContextTokens(m.contextLength)}  tools=${m.supportsTools}  reasoning=${m.supportsReasoning}  vision=${m.supportsVision}`,
         );
       }
       return "handled";
@@ -367,4 +366,89 @@ function printActionResult(result: actions.ActionResult | null, notDetectedMessa
   console.log(`${ok ? theme.success("✓") : theme.error("✗")} ${result.command}  (${result.durationMs}ms, exit ${result.exitCode})`);
   if (result.stdout) console.log(result.stdout.slice(-4000));
   if (result.stderr) console.log(theme.dim(result.stderr.slice(-2000)));
+}
+
+function formatContextTokens(tokens: number | null): string {
+  if (!tokens) return "?";
+  if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(tokens % 1_000_000 === 0 ? 0 : 1)}M`;
+  if (tokens >= 1_000) return `${Math.round(tokens / 1_000)}K`;
+  return String(tokens);
+}
+
+/**
+ * Interactive model picker: lists the full Venice catalog (agent-capable models
+ * first — the agent loop needs tool calling) and switches on a number or id.
+ * The catalog is fetched live from /models, so new Venice models appear here
+ * automatically with no code changes.
+ */
+async function runModelPicker(state: ReplState): Promise<SlashResult> {
+  const { cfg, runtime, rl } = state;
+
+  let models;
+  try {
+    models = await runtime.provider.getModels();
+  } catch (err) {
+    console.log(theme.error(`Could not fetch the model catalog: ${(err as Error).message}`));
+    console.log(theme.dim("You can still switch directly with /model <id>."));
+    return "handled";
+  }
+
+  const selectable = models.filter((m) => m.supportsTools);
+  const excluded = models.length - selectable.length;
+
+  console.log(`Current model: ${theme.bold(cfg.model)}\n`);
+  const width = String(selectable.length).length;
+  selectable.forEach((m, i) => {
+    const marker = m.id === cfg.model ? theme.success("●") : " ";
+    const tags = [
+      m.supportsReasoning ? "reasoning" : null,
+      m.supportsVision ? "vision" : null,
+    ].filter(Boolean).join(", ");
+    const number = String(i + 1).padStart(width);
+    console.log(
+      `${marker} ${theme.dim(number)}. ${theme.bold(m.id.padEnd(42))} ${formatContextTokens(m.contextLength).padStart(4)} ctx${tags ? theme.dim(`  [${tags}]`) : ""}`,
+    );
+  });
+  if (excluded > 0) {
+    console.log(theme.dim(`\n(${excluded} models without tool-calling support hidden — the agent loop requires tools. See /models for everything.)`));
+  }
+
+  const answer = (await rl.question("\nSelect a model by number or id (Enter to keep current): ")).trim();
+  if (!answer) {
+    console.log(theme.dim(`Keeping ${cfg.model}.`));
+    return "handled";
+  }
+
+  let chosenId = answer;
+  if (/^\d+$/.test(answer)) {
+    const picked = selectable[Number(answer) - 1];
+    if (!picked) {
+      console.log(theme.error(`No model numbered ${answer}. Nothing changed.`));
+      return "handled";
+    }
+    chosenId = picked.id;
+  }
+
+  await switchModel(state, chosenId);
+  return "handled";
+}
+
+/** Switches the active model, warning (but not blocking) when the id is unknown or lacks tool support. */
+async function switchModel(state: ReplState, id: string): Promise<void> {
+  const { cfg, runtime } = state;
+
+  try {
+    const caps = await runtime.provider.capabilities(id);
+    if (!caps) {
+      console.log(theme.warning(`"${id}" is not in Venice's current catalog — switching anyway (it may be new or renamed; /models lists what's available).`));
+    } else if (!caps.supportsTools) {
+      console.log(theme.warning(`"${id}" does not support tool calling — the agent loop will not be able to edit files or run commands with it.`));
+    }
+  } catch {
+    // Catalog unreachable (offline, transient error): don't block a manual switch.
+  }
+
+  cfg.model = id;
+  runtime.loop.setModel(id);
+  console.log(theme.success(`Switched model to ${id}`));
 }

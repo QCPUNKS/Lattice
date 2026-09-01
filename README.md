@@ -15,6 +15,7 @@ If that sounds like something you don't wanna do I have designed this tool for a
 ## What Lattice is
 
 - **Provider abstraction** with a full **Venice AI** implementation: SSE streaming, tool calling, retries with backoff on 429/5xx, timeouts, cancellation, model capability discovery via `/models`.
+- **Interactive model picker**: `/model` lists the live Venice catalog — agent-capable models only, with context length and reasoning/vision tags — and switches on a number or an id. New Venice models appear automatically with no code changes.
 - **Agent loop**: multi-turn model ↔ tool-call ↔ result cycle with configurable iteration/tool-call caps, automatic repeated-failure detection (stops instead of looping on the same failing command), and automatic context compaction as the conversation grows.
 - **26 native tools**: filesystem (read/write/edit/create/delete/list/search/stat/exists/copy/move, ripgrep-backed search), shell (foreground commands + managed background processes with process-group kill), git (status/diff/log/branch/commit), and project inspection.
 - **Real MCP client** (stdio + streamable-HTTP) — connects to configure servers, discovers and namespaces their tools, and exposes them to the model alongside the native ones. Project-scoped servers are surfaced and confirmed before Lattice spawns anything from a repo you don't own.

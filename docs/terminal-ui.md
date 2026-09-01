@@ -26,7 +26,7 @@ lattice › <your request>
 
 <streamed model response>
 
-tokens: 4.2k │ tools: 25 │ model: kimi-k2-7-code │ mode: normal │ workspace: ~/Projects/my-app
+tokens: 4.2k │ tools: 26 │ model: kimi-k2-7-code │ mode: normal │ workspace: ~/Projects/my-app
 ```
 
 ## Theme
