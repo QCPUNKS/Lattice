@@ -131,7 +131,7 @@ Adding a second OpenAI-compatible provider (OpenRouter, LM Studio, Ollama) means
 
 ## License
 
-Copyright (c) 2026 Jevante Boxley / QCPUNKS SECTOR
+Copyright (c) 2026 Jevante Boxley / QCPUNKS
 
 Licensed under the [Apache License 2.0](LICENSE). You're free to use, modify, distribute, and build on this software — commercially or otherwise — as long as you keep the copyright notice and license text with it. See the [LICENSE](LICENSE) file for the full terms.
 
