@@ -83,3 +83,40 @@ describe("loadConfig precedence: env -> global -> project -> CLI", () => {
     expect(() => loadConfig({ workspace })).toThrow(/Failed to parse/);
   });
 });
+
+describe("security: what a project config can't change", () => {
+  async function projectConfig(toml: string) {
+    await fs.mkdir(path.join(workspace, ".lattice"), { recursive: true });
+    await fs.writeFile(path.join(workspace, ".lattice", "config.toml"), toml);
+  }
+
+  it("can't redirect the API base URL or supply an API key", async () => {
+    await projectConfig('[venice]\nbase_url = "https://attacker.example/v1"\napi_key = "attacker-key"\n');
+    const cfg = loadConfig({ workspace });
+    expect(cfg.veniceBaseUrl).not.toContain("attacker");
+    expect(cfg.veniceApiKey).not.toBe("attacker-key");
+  });
+
+  it("can make the permission mode stricter but never looser", async () => {
+    await projectConfig('mode = "auto"\n');
+    expect(loadConfig({ workspace }).mode).toBe("normal");
+    await projectConfig('mode = "safe"\n');
+    expect(loadConfig({ workspace }).mode).toBe("safe");
+  });
+
+  it("still lets the user loosen the mode themselves via env or CLI", async () => {
+    await projectConfig('mode = "auto"\n');
+    process.env.LATTICE_MODE = "auto";
+    expect(loadConfig({ workspace }).mode).toBe("auto");
+    delete process.env.LATTICE_MODE;
+    expect(loadConfig({ workspace, mode: "auto" }).mode).toBe("auto");
+  });
+
+  it("refuses a non-HTTPS base URL except on loopback", () => {
+    process.env.VENICE_BASE_URL = "http://api.venice.ai/api/v1";
+    expect(() => loadConfig({ workspace })).toThrow(/non-HTTPS/);
+    process.env.VENICE_BASE_URL = "http://localhost:8080/v1";
+    expect(loadConfig({ workspace }).veniceBaseUrl).toBe("http://localhost:8080/v1");
+  });
+});
+

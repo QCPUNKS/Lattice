@@ -93,6 +93,25 @@ function isPermissionMode(v: unknown): v is PermissionMode {
   return v === "safe" || v === "normal" || v === "auto";
 }
 
+const MODE_STRICTNESS: Record<PermissionMode, number> = { safe: 2, normal: 1, auto: 0 };
+
+/**
+ * The API key is sent as a bearer token to this URL, so it must be HTTPS.
+ * Plain HTTP is tolerated only for loopback (local proxies / test servers).
+ */
+export function assertSafeBaseUrl(url: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error(`Invalid Venice base URL: ${url}`);
+  }
+  const loopback = ["localhost", "127.0.0.1", "[::1]"].includes(parsed.hostname);
+  if (parsed.protocol !== "https:" && !(parsed.protocol === "http:" && loopback)) {
+    throw new Error(`Refusing non-HTTPS Venice base URL ${url}: your API key would be sent in cleartext.`);
+  }
+}
+
 /**
  * Merges configuration in precedence order:
  * defaults → environment variables → global config → project config → CLI arguments.
@@ -138,16 +157,17 @@ export function loadConfig(overrides: ConfigOverrides = {}): LatticeConfig {
   if (process.env.LATTICE_TEMPERATURE) temperature = envNum(process.env.LATTICE_TEMPERATURE, temperature);
   if (process.env.LATTICE_MAX_TOKENS) maxTokens = envNum(process.env.LATTICE_MAX_TOKENS, maxTokens);
 
-  // global config (~/.config/lattice/config.toml)
+  // global config (~/.config/lattice/config.toml), then project config (<workspace>/.lattice/config.toml)
   for (const toml of [globalToml, projectToml]) {
     if (!toml) continue;
+    const isProject = toml === projectToml;
     if (toml.model) model = toml.model;
     if (toml.mode) {
       if (!isPermissionMode(toml.mode)) throw new Error(`Invalid mode in config.toml: ${toml.mode}`);
-      mode = toml.mode;
+      // A project config arrives with whatever repo was cloned: it may make the
+      // mode stricter, never looser (e.g. a repo can't switch you to "auto").
+      if (!isProject || MODE_STRICTNESS[toml.mode] >= MODE_STRICTNESS[mode]) mode = toml.mode;
     }
-    if (toml.venice?.base_url) veniceBaseUrl = toml.venice.base_url;
-    if (toml.venice?.api_key && !veniceApiKey) veniceApiKey = toml.venice.api_key;
     if (toml.generation?.temperature !== undefined) temperature = toml.generation.temperature;
     if (toml.generation?.max_tokens !== undefined) maxTokens = toml.generation.max_tokens;
     if (toml.agent?.max_iterations !== undefined) maxIterations = toml.agent.max_iterations;
@@ -156,6 +176,13 @@ export function loadConfig(overrides: ConfigOverrides = {}): LatticeConfig {
     if (toml.agent?.command_timeout !== undefined) commandTimeoutMs = toml.agent.command_timeout * 1000;
     if (toml.context?.token_budget !== undefined) contextTokenBudget = toml.context.token_budget;
   }
+  // Security: where the API key is sent, and the key itself, come from the
+  // environment or the global config only — never from a project config,
+  // which could redirect your bearer token to someone else's server.
+  if (globalToml?.venice?.base_url) veniceBaseUrl = globalToml.venice.base_url;
+  if (globalToml?.venice?.api_key && !veniceApiKey) veniceApiKey = globalToml.venice.api_key;
+  assertSafeBaseUrl(veniceBaseUrl);
+
   // Global config's [workspace].root only applies if the caller didn't already pin one via CLI.
   if (globalToml?.workspace?.root && !overrides.workspace) {
     workspace = resolve(globalToml.workspace.root);

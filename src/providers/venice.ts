@@ -158,6 +158,12 @@ export class VeniceProvider implements ModelProvider {
       max_completion_tokens: options.maxTokens ?? this.opts.defaultMaxTokens,
       parallel_tool_calls: options.parallelToolCalls ?? true,
       stream,
+      // Ask for the final usage chunk so token counts are real, not estimated.
+      ...(stream ? { stream_options: { include_usage: true } } : {}),
+      // Venice otherwise prepends its own ~1.7k-token system prompt to every
+      // request: paid for on each call, and it mixes Venice's persona into the
+      // agent's instructions.
+      venice_parameters: { include_venice_system_prompt: false },
     };
   }
 
@@ -241,6 +247,19 @@ export class VeniceProvider implements ModelProvider {
             continue; // skip malformed SSE chunk rather than crashing the agent loop
           }
 
+          // Venice sends usage in a final chunk with an empty choices array —
+          // read it before skipping choice-less chunks.
+          if (json.usage) {
+            yield {
+              type: "usage",
+              usage: {
+                promptTokens: json.usage.prompt_tokens ?? 0,
+                completionTokens: json.usage.completion_tokens ?? 0,
+                totalTokens: json.usage.total_tokens ?? 0,
+              },
+            };
+          }
+
           const choice = json.choices?.[0];
           if (!choice) continue;
 
@@ -270,17 +289,6 @@ export class VeniceProvider implements ModelProvider {
                 };
               }
             }
-          }
-
-          if (json.usage) {
-            yield {
-              type: "usage",
-              usage: {
-                promptTokens: json.usage.prompt_tokens ?? 0,
-                completionTokens: json.usage.completion_tokens ?? 0,
-                totalTokens: json.usage.total_tokens ?? 0,
-              },
-            };
           }
 
           if (choice.finish_reason) {

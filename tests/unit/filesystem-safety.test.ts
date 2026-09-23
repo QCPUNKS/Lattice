@@ -71,3 +71,38 @@ describe("edit_file", () => {
     expect(content).toBe("bar\nbaz\n");
   });
 });
+
+describe("filesystem tools: symlink escapes", () => {
+  let outside: string;
+  beforeEach(async () => {
+    outside = await fs.mkdtemp(path.join(os.tmpdir(), "lattice-outside-"));
+    await fs.writeFile(path.join(outside, "private.txt"), "not yours");
+  });
+  afterEach(async () => {
+    await fs.rm(outside, { recursive: true, force: true });
+  });
+
+  it("refuses to read through a symlinked directory that points outside the workspace", async () => {
+    await fs.symlink(outside, path.join(workspace, "notes"));
+    await expect(readFileHandler({ path: "notes/private.txt" }, ctx)).rejects.toThrow(/outside the workspace/);
+  });
+
+  it("refuses to write through a symlinked file that points outside the workspace", async () => {
+    await fs.symlink(path.join(outside, "private.txt"), path.join(workspace, "innocent.txt"));
+    await expect(writeFileHandler({ path: "innocent.txt", content: "x" }, ctx)).rejects.toThrow(/outside the workspace/);
+    expect(await fs.readFile(path.join(outside, "private.txt"), "utf-8")).toBe("not yours");
+  });
+
+  it("refuses to create a new file under a symlinked directory that points outside", async () => {
+    await fs.symlink(outside, path.join(workspace, "out"));
+    await expect(writeFileHandler({ path: "out/new/deep.txt", content: "x" }, ctx)).rejects.toThrow(/outside the workspace/);
+  });
+
+  it("still allows symlinks that stay inside the workspace", async () => {
+    await fs.mkdir(path.join(workspace, "real"));
+    await fs.writeFile(path.join(workspace, "real", "a.txt"), "ok");
+    await fs.symlink(path.join(workspace, "real"), path.join(workspace, "alias"));
+    expect(await readFileHandler({ path: "alias/a.txt" }, ctx)).toContain("ok");
+  });
+});
+

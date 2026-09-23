@@ -1,8 +1,9 @@
 // Copyright (c) 2026 Jevante Boxley / QCPUNKS
 // SPDX-License-Identifier: Apache-2.0
 
-import { promises as fs, appendFileSync, existsSync, mkdirSync } from "node:fs";
+import { promises as fs, appendFileSync } from "node:fs";
 import path from "node:path";
+import { ensurePrivateDirSync, PRIVATE_FILE_MODE } from "../security/private-storage.js";
 
 /**
  * Structured audit trail. Every entry is appended to a local
@@ -13,12 +14,12 @@ import path from "node:path";
  */
 export function createAuditLogger(dataDir: string, debug: boolean): (event: Record<string, unknown>) => void {
   const logPath = path.join(dataDir, "audit.log");
-  if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
+  ensurePrivateDirSync(dataDir);
 
   return (event: Record<string, unknown>) => {
     const line = JSON.stringify({ ts: new Date().toISOString(), ...event });
     try {
-      appendFileSync(logPath, line + "\n", "utf-8");
+      appendFileSync(logPath, line + "\n", { encoding: "utf-8", mode: PRIVATE_FILE_MODE });
     } catch {
       // audit logging must never crash the agent
     }

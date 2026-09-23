@@ -15,6 +15,7 @@ import { resolveMcpServers } from "../mcp/config.js";
 import { ensureProjectMemory, ensureLatticeDirGitignored } from "../project/memory.js";
 import { createAuditLogger } from "../audit/log.js";
 import { killAllManagedProcesses } from "../tools/shell.js";
+import { repairPrivateStorage } from "../security/private-storage.js";
 
 export interface Runtime {
   provider: VeniceProvider;
@@ -40,7 +41,10 @@ export interface RuntimeOptions {
  * by both the interactive REPL and non-interactive `lattice exec`/`lattice ask`.
  */
 export async function buildRuntime(cfg: LatticeConfig, options: RuntimeOptions): Promise<Runtime> {
+  // Repair permissions on data written before Lattice enforced owner-only storage.
+  const tightened = repairPrivateStorage(cfg.dataDir, cfg.globalConfigDir);
   const auditLog = createAuditLogger(cfg.dataDir, options.debug);
+  if (tightened > 0) auditLog({ type: "private_storage_repaired", entries: tightened });
 
   const provider = new VeniceProvider({
     apiKey: cfg.veniceApiKey ?? "",

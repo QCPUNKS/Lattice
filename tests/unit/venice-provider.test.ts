@@ -161,4 +161,22 @@ describe("VeniceProvider", () => {
       },
     ]);
   });
+
+  it("asks for usage, disables Venice's injected system prompt, and reads the choice-less usage chunk", async () => {
+    // Venice's real final chunk: an empty choices array carrying the usage.
+    fetchMock.mockResolvedValueOnce(
+      sseResponse([
+        'data: {"choices":[{"delta":{"content":"hi"}}]}',
+        'data: {"choices":[],"usage":{"prompt_tokens":13,"completion_tokens":8,"total_tokens":21}}',
+        "data: [DONE]",
+      ]),
+    );
+    const events = [];
+    for await (const e of provider().stream({ messages: [{ role: "user", content: "hi" }] })) events.push(e);
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.stream_options).toEqual({ include_usage: true });
+    expect(body.venice_parameters).toEqual({ include_venice_system_prompt: false });
+    expect(events).toContainEqual({ type: "usage", usage: { promptTokens: 13, completionTokens: 8, totalTokens: 21 } });
+  });
 });

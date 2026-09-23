@@ -3,13 +3,11 @@
 
 import * as readline from "node:readline/promises";
 import { stdin, stdout } from "node:process";
-import { promises as fs, existsSync, readFileSync } from "node:fs";
-import path from "node:path";
-import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
 import { theme } from "../../ui/theme.js";
 import type { LatticeConfig } from "../../config/index.js";
 import { VeniceProvider } from "../../providers/venice.js";
 import { ExitCode } from "../exit-codes.js";
+import { updateGlobalConfig, tableAt } from "../../config/writer.js";
 
 /**
  * First-run configuration wizard: Venice API key, default model,
@@ -56,19 +54,12 @@ export async function runSetupCommand(cfg: LatticeConfig): Promise<number> {
     const modeInput = (await rl.question(`Permission mode (safe/normal/auto) [${cfg.mode}]: `)).trim();
     const mode = ["safe", "normal", "auto"].includes(modeInput) ? modeInput : cfg.mode;
 
-    await fs.mkdir(cfg.globalConfigDir, { recursive: true });
-    const configPath = path.join(cfg.globalConfigDir, "config.toml");
-    const existing = existsSync(configPath) ? (parseToml(readFileSync(configPath, "utf-8")) as any) : {};
-    existing.model = model;
-    existing.mode = mode;
-    existing.workspace = existing.workspace ?? {};
-    existing.workspace.root = workspace;
-    if (apiKey) {
-      existing.venice = existing.venice ?? {};
-      existing.venice.api_key = apiKey;
-    }
-    await fs.writeFile(configPath, stringifyToml(existing), "utf-8");
-
+    const configPath = await updateGlobalConfig(cfg.globalConfigDir, (existing) => {
+      existing.model = model;
+      existing.mode = mode;
+      existing.workspace = { ...tableAt(existing, "workspace"), root: workspace };
+      if (apiKey) existing.venice = { ...tableAt(existing, "venice"), api_key: apiKey };
+    });
     console.log(theme.success(`\nSaved to ${configPath}`));
     console.log(theme.dim("Run `lattice doctor` to verify everything is working."));
     return ExitCode.SUCCESS;

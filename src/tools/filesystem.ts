@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Jevante Boxley / QCPUNKS
 // SPDX-License-Identifier: Apache-2.0
 
-import { promises as fs } from "node:fs";
+import { promises as fs, realpathSync } from "node:fs";
 import path from "node:path";
 import type { ToolDefinition } from "../providers/types.js";
 import type { ToolContext, ToolHandler } from "./registry.js";
@@ -10,15 +10,41 @@ import { rgAvailable, rgListFiles, rgSearchContent } from "./ripgrep.js";
 
 const MAX_READ_BYTES = 300_000; // bound tool output so we don't blow the context window
 
-/** Resolves a user-supplied path against the workspace and refuses to leave it. */
+function isInside(root: string, candidate: string): boolean {
+  const rel = path.relative(root, candidate);
+  return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+}
+
+/**
+ * Real (symlink-free) path of `p`, or of its deepest existing ancestor with
+ * the not-yet-existing remainder appended, so paths about to be created are
+ * checked through any symlinked parent directory too.
+ */
+function realpathOfNearestExisting(p: string): string {
+  let existing = p;
+  const pending: string[] = [];
+  while (true) {
+    try {
+      return path.join(realpathSync.native(existing), ...pending.reverse());
+    } catch {
+      const parent = path.dirname(existing);
+      if (parent === existing) return p;
+      pending.push(path.basename(existing));
+      existing = parent;
+    }
+  }
+}
+
+/**
+ * Resolves a user-supplied path against the workspace and refuses to leave
+ * it: lexically (`../`, absolute paths) and physically (a symlink inside the
+ * workspace pointing elsewhere, e.g. one planted in a cloned repo).
+ */
 function resolveSafe(workspace: string, target: string): string {
   const resolved = path.resolve(workspace, target);
-  const rel = path.relative(workspace, resolved);
-  if (rel.startsWith("..") || path.isAbsolute(rel)) {
-    throw new Error(
-      `Refusing to access path outside the workspace: ${target}`,
-    );
-  }
+  const outside = new Error(`Refusing to access path outside the workspace: ${target}`);
+  if (!isInside(workspace, resolved)) throw outside;
+  if (!isInside(realpathOfNearestExisting(workspace), realpathOfNearestExisting(resolved))) throw outside;
   return resolved;
 }
 
