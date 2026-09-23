@@ -67,8 +67,20 @@ export interface UiConfig {
   background: string | undefined;
 }
 
+export type VoiceEngineName = "local" | "venice";
+
 export interface VoiceConfig {
   mode: VoiceMode;
+  /** "local": Whisper + Kokoro on this machine (free, offline). "venice": Venice's hosted speech models (paid). */
+  engine: VoiceEngineName;
+  /** Python with faster-whisper + kokoro-onnx installed (scripts/voice/install-local-voice.sh creates one). */
+  localPython: string;
+  /** faster-whisper model name (from the Hugging Face cache) or a local path. */
+  localSttModel: string;
+  /** auto | cuda | cpu */
+  localSttDevice: string;
+  localTtsModel: string;
+  localTtsVoices: string;
   /** PulseAudio/PipeWire source name. undefined = auto-detect the first non-monitor source. */
   inputDevice: string | undefined;
   sttModel: string;
@@ -147,6 +159,12 @@ const DEFAULTS = {
   } satisfies UiConfig,
   voice: {
     mode: "off",
+    engine: "local",
+    localPython: join(homedir(), ".local", "share", "lattice", "voice-env", "bin", "python"),
+    localSttModel: "small.en",
+    localSttDevice: "auto",
+    localTtsModel: join(homedir(), ".local", "share", "lattice", "voice-models", "kokoro-v1.0.onnx"),
+    localTtsVoices: join(homedir(), ".local", "share", "lattice", "voice-models", "voices-v1.0.bin"),
     inputDevice: undefined,
     sttModel: "openai/whisper-large-v3",
     ttsModel: "tts-kokoro",
@@ -194,6 +212,12 @@ interface TomlConfigShape {
   };
   voice?: {
     mode?: string;
+    engine?: string;
+    local_python?: string;
+    local_stt_model?: string;
+    local_stt_device?: string;
+    local_tts_model?: string;
+    local_tts_voices?: string;
     input_device?: string;
     stt_model?: string;
     tts_model?: string;
@@ -406,6 +430,18 @@ function applyVoiceToml(voice: VoiceConfig, t: TomlConfigShape["voice"]): void {
     if (!isVoiceMode(t.mode)) throw new Error(`Invalid [voice] mode in config.toml: ${t.mode}. Must be one of ${VOICE_MODES.join(", ")}.`);
     voice.mode = t.mode;
   }
+  if (t.engine !== undefined) {
+    if (t.engine !== "local" && t.engine !== "venice") throw new Error(`Invalid [voice] engine: ${t.engine}. Must be local or venice.`);
+    voice.engine = t.engine;
+  }
+  if (t.local_python) voice.localPython = t.local_python.includes("/") ? expandHome(t.local_python) : t.local_python;
+  if (t.local_stt_model) voice.localSttModel = t.local_stt_model;
+  if (t.local_stt_device !== undefined) {
+    if (!["auto", "cuda", "cpu"].includes(t.local_stt_device)) throw new Error(`Invalid [voice] local_stt_device: ${t.local_stt_device}. Must be auto, cuda, or cpu.`);
+    voice.localSttDevice = t.local_stt_device;
+  }
+  if (t.local_tts_model) voice.localTtsModel = expandHome(t.local_tts_model);
+  if (t.local_tts_voices) voice.localTtsVoices = expandHome(t.local_tts_voices);
   if (t.input_device) voice.inputDevice = t.input_device;
   if (t.stt_model) voice.sttModel = t.stt_model;
   if (t.tts_model) voice.ttsModel = t.tts_model;

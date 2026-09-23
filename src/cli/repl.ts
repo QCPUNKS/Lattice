@@ -77,6 +77,7 @@ export async function runInteractive(
 
   const state: ReplState = { cfg, runtime, session, rl, director };
   runtime.spend.ledger.setSession(session.id);
+  runtime.voice.warmUp(); // voice mode already on: load local models now, not on the first sentence
   // Know the balance from the start (free call, in the background; never delays startup).
   void runtime.http.refreshBalance().then((balance) => {
     if (balance && runtime.spend.budget.isLowBalance(balance.usd)) {

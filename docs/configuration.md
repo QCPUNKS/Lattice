@@ -92,6 +92,10 @@ aspect_ratio = "1:1"
 
 [voice]
 mode = "off"                        # off | chat | dictate | listen
+engine = "local"                    # local (free, offline) | venice (hosted, paid)
+local_python = "~/.local/share/lattice/voice-env/bin/python"
+local_stt_model = "small.en"
+local_stt_device = "auto"           # auto | cuda | cpu
 # input_device = "alsa_input..."    # default: auto (never a .monitor source)
 stt_model = "openai/whisper-large-v3"
 tts_model = "tts-kokoro"

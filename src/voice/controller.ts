@@ -5,15 +5,8 @@ import type * as readline from "node:readline/promises";
 import type { LatticeConfig, VoiceMode } from "../config/index.js";
 import { setGlobalConfigValue } from "../config/writer.js";
 import type { VeniceHttp } from "../providers/venice-http.js";
-import { VeniceSpeechClient, type VoiceModelInfo } from "../media/speech-client.js";
-import {
-  playAudio,
-  resolveMicrophone,
-  startRecording,
-  checkAudioTools,
-  RECORDING_FILENAME,
-  RECORDING_MIME_TYPE,
-} from "../media/audio-io.js";
+import { playAudio, resolveMicrophone, startRecording, checkAudioTools } from "../media/audio-io.js";
+import { LocalSpeechEngine, VeniceSpeechEngine, type SpeechEngine, type VoiceEngineName } from "./engines.js";
 import { startActivity } from "../ui/activity.js";
 import { theme } from "../ui/theme.js";
 import { SpeakableText } from "./speakable-text.js";
@@ -43,47 +36,33 @@ export interface ResponseSpeech {
   onEnd(): void;
 }
 
-const MODELS_TTL_MS = 10 * 60 * 1000;
-
 /**
- * Owns the voice experience: mode, microphone capture, transcription, and
- * spoken replies. Audio lives only in memory; transcripts are never written
- * to the audit log (only durations are).
+ * Owns the voice experience: mode, engine, microphone capture, transcription,
+ * and spoken replies. Audio lives only in memory; transcripts are never
+ * written to the audit log (only durations are).
  */
 export class VoiceController {
-  private readonly speech: VeniceSpeechClient;
   private readonly speaker: Speaker;
-  private modelCache = new Map<"tts" | "asr", { at: number; models: VoiceModelInfo[] }>();
+  private readonly local: LocalSpeechEngine;
+  readonly venice: VeniceSpeechEngine;
 
   constructor(
     http: VeniceHttp,
     private readonly cfg: LatticeConfig,
     private readonly auditLog: (event: Record<string, unknown>) => void,
-    private readonly ledger?: SpendLedger,
+    ledger?: SpendLedger,
   ) {
-    this.speech = new VeniceSpeechClient(http);
+    this.local = new LocalSpeechEngine(cfg);
+    this.venice = new VeniceSpeechEngine(http, cfg, ledger);
     this.speaker = new Speaker({
-      synthesize: async (text, signal) => {
-        const model = cfg.voice.ttsModel;
-        const audio = await this.speech.synthesize(text, { model, voice: cfg.voice.voice, speed: cfg.voice.speed }, signal);
-        void this.recordSpeech(model, text.length);
-        return audio;
-      },
+      synthesize: (text, signal) => this.engine.synthesize(text, signal),
       play: playAudio,
       onError: (err) => console.log(theme.error(`\n  [voice] ${err.message}`)),
     });
   }
 
-  private async recordSpeech(model: string, characters: number): Promise<void> {
-    if (!this.ledger) return;
-    const rate = (await this.models("tts").catch(() => [])).find((m) => m.id === model)?.usdPerMillionChars ?? 0;
-    this.ledger.record({ kind: "speech", model, usd: (characters * rate) / 1_000_000, source: "estimate", units: characters });
-  }
-
-  private async recordTranscription(model: string, seconds: number): Promise<void> {
-    if (!this.ledger) return;
-    const rate = (await this.models("asr").catch(() => [])).find((m) => m.id === model)?.usdPerSecond ?? 0;
-    this.ledger.record({ kind: "transcription", model, usd: seconds * rate, source: "estimate", units: Math.round(seconds * 10) / 10 });
+  get engine(): SpeechEngine {
+    return this.cfg.voice.engine === "local" ? this.local : this.venice;
   }
 
   get mode(): VoiceMode {
@@ -102,55 +81,79 @@ export class VoiceController {
     return this.speaker.isSpeaking;
   }
 
-  /** Checks dependencies and model privacy before a mode that needs them is switched on. */
+  describe(): string {
+    return this.engine.describe();
+  }
+
+  /** Called at startup when a voice mode is already on: warm the local models before the user speaks. */
+  warmUp(): void {
+    if (this.mode === "off" || this.cfg.voice.engine !== "local") return;
+    this.local.warmInBackground({ input: this.inputEnabled, output: this.outputEnabled });
+  }
+
+  /** Checks dependencies (and, for Venice, model privacy) before a mode that needs them is switched on. */
   async setMode(mode: VoiceMode): Promise<void> {
     if (mode !== "off") {
       const missing = await checkAudioTools();
       if (missing.length > 0) throw new Error(`Voice needs ${missing.join(", ")}. Install with: sudo apt install ffmpeg pulseaudio-utils`);
-      if (voiceInputEnabled(mode)) {
-        await resolveMicrophone(this.cfg.voice.inputDevice);
-        await this.assertModelAllowed("asr", this.cfg.voice.sttModel);
-      }
-      if (voiceOutputEnabled(mode)) await this.assertModelAllowed("tts", this.cfg.voice.ttsModel);
+      if (voiceInputEnabled(mode)) await resolveMicrophone(this.cfg.voice.inputDevice);
+      await this.prepareEngine({ input: voiceInputEnabled(mode), output: voiceOutputEnabled(mode) });
     }
     if (!voiceOutputEnabled(mode)) this.speaker.stop();
     this.cfg.voice.mode = mode;
     await setGlobalConfigValue(this.cfg.globalConfigDir, "voice", "mode", mode);
   }
 
-  async models(type: "tts" | "asr"): Promise<VoiceModelInfo[]> {
-    const hit = this.modelCache.get(type);
-    if (hit && Date.now() - hit.at < MODELS_TTL_MS) return hit.models;
-    const models = await this.speech.listModels(type);
-    this.modelCache.set(type, { at: Date.now(), models });
-    return models;
+  async setEngine(name: VoiceEngineName): Promise<void> {
+    const previous = this.cfg.voice.engine;
+    this.speaker.stop();
+    this.cfg.voice.engine = name;
+    try {
+      if (this.mode !== "off") await this.prepareEngine({ input: this.inputEnabled, output: this.outputEnabled });
+    } catch (err) {
+      this.cfg.voice.engine = previous;
+      throw err;
+    }
+    if (name !== "local") this.local.dispose(); // free the GPU when not in use
+    await setGlobalConfigValue(this.cfg.globalConfigDir, "voice", "engine", name);
   }
 
-  private async assertModelAllowed(type: "tts" | "asr", id: string): Promise<VoiceModelInfo> {
-    const model = (await this.models(type)).find((m) => m.id === id);
-    if (!model) throw new Error(`Unknown ${type === "tts" ? "voice" : "transcription"} model "${id}".`);
-    if (this.cfg.voice.privateOnly && model.privacy !== "private") {
-      throw new Error(`${id} is "${model.privacy}" (Venice forwards audio/text to a third party). Choose a private model or set [voice] private_only = false.`);
+  private async prepareEngine(needs: { input: boolean; output: boolean }): Promise<void> {
+    const loading = this.engine.name === "local" ? startActivity("thinking", "loading local voice models…") : null;
+    try {
+      await this.engine.prepare(needs);
+    } catch (err) {
+      if (this.engine.name === "local") {
+        throw new Error(`${(err as Error).message}\n  Set up local voice with scripts/voice/install-local-voice.sh, or use /voice engine venice.`);
+      }
+      throw err;
+    } finally {
+      loading?.stop();
     }
-    return model;
+  }
+
+  voices(): Promise<string[]> {
+    return this.engine.voices();
   }
 
   async setVoice(voice: string): Promise<void> {
-    const model = await this.assertModelAllowed("tts", this.cfg.voice.ttsModel);
-    if (model.voices.length > 0 && !model.voices.includes(voice)) {
-      throw new Error(`${model.id} has no voice "${voice}". /voice voices lists them.`);
+    const available = await this.engine.voices();
+    if (available.length > 0 && !available.includes(voice)) {
+      throw new Error(`The ${this.engine.name} engine has no voice "${voice}". /voice voices lists them.`);
     }
     this.cfg.voice.voice = voice;
     await setGlobalConfigValue(this.cfg.globalConfigDir, "voice", "voice", voice);
   }
 
+  /** Venice only: choose which hosted TTS model to use. */
   async setTtsModel(id: string): Promise<void> {
-    const model = await this.assertModelAllowed("tts", id);
+    const model = await this.venice.assertModelAllowed("tts", id);
     this.cfg.voice.ttsModel = id;
     await setGlobalConfigValue(this.cfg.globalConfigDir, "voice", "tts_model", id);
     // Voices are model-specific; keep the current one only if the new model has it.
     if (model.voices.length > 0 && !model.voices.includes(this.cfg.voice.voice)) {
-      await this.setVoice(model.voices[0]);
+      this.cfg.voice.voice = model.voices[0];
+      await setGlobalConfigValue(this.cfg.globalConfigDir, "voice", "voice", model.voices[0]);
       console.log(theme.dim(`  Voice reset to ${model.voices[0]} (the previous voice isn't available on ${id}).`));
     }
   }
@@ -215,19 +218,8 @@ export class VoiceController {
 
     const working = startActivity("transcribing", "transcribing…");
     try {
-      await this.assertModelAllowed("asr", this.cfg.voice.sttModel);
-      const transcript = await this.speech.transcribe(
-        audio,
-        {
-          model: this.cfg.voice.sttModel,
-          language: this.cfg.voice.language,
-          mimeType: RECORDING_MIME_TYPE,
-          filename: RECORDING_FILENAME,
-        },
-        signal,
-      );
-      this.auditLog({ type: "voice_transcribed", seconds: Math.round(seconds * 10) / 10, model: this.cfg.voice.sttModel });
-      await this.recordTranscription(this.cfg.voice.sttModel, transcript.durationSeconds ?? seconds);
+      const transcript = await this.engine.transcribe(audio, signal);
+      this.auditLog({ type: "voice_transcribed", seconds: Math.round(seconds * 10) / 10, engine: this.engine.name });
       if (!transcript.text) {
         console.log(theme.dim("  (didn't catch that — nothing sent)"));
         return null;
@@ -263,5 +255,10 @@ export class VoiceController {
 
   async idle(): Promise<void> {
     await this.speaker.idle();
+  }
+
+  dispose(): void {
+    this.speaker.stop();
+    this.local.dispose();
   }
 }

@@ -133,7 +133,7 @@ Talk to Lattice and hear it answer, with input and output independently switchab
 |---|---|---|---|
 | speak → hear | speak → read | type → hear | type → read |
 
-Push-to-talk: **Enter on an empty line** starts recording, **Enter** sends, **Ctrl+C** cancels. Spoken replies skip code blocks and always print as captions. Audio never touches disk. Full guide: `docs/voice.md`.
+Push-to-talk: **Enter on an empty line** starts recording, **Enter** sends, **Ctrl+C** cancels. Spoken replies skip code blocks and always print as captions. Voice runs **locally by default**, free and offline: Whisper on your GPU and Kokoro on your machine (`scripts/voice/install-local-voice.sh`), with Venice's hosted voice available as an alternative. Audio never touches disk. Full guide: `docs/voice.md`.
 
 ## Images
 

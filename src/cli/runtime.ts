@@ -150,7 +150,7 @@ export async function buildRuntime(cfg: LatticeConfig, options: RuntimeOptions):
     mcp,
     auditLog,
     async shutdown() {
-      voice.stopSpeaking();
+      voice.dispose(); // stops speech and the local voice service
       killAllManagedProcesses();
       await mcp.disconnectAll();
     },
