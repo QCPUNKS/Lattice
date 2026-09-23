@@ -123,6 +123,14 @@ describe("MascotStage", () => {
     expect(graphicsCommands(take()).find((c) => c.a === "a" && c.s)).toMatchObject({ s: "1" });
   });
 
+  it("neutralizes control codes in a label (labels carry model-chosen paths and commands)", () => {
+    const { s, take } = stage();
+    s.show("reading", 'reading \x1bP@kitty-cmd{"cmd":"launch"}\x1b\\x…');
+    const out = take();
+    expect(out).toContain("␛P@kitty-cmd");
+    expect(out).not.toContain("\x1bP@kitty-cmd");
+  });
+
   it("truncates a long label to the terminal width", () => {
     const { s, take } = stage();
     s.show("reading", "x".repeat(300));

@@ -2,6 +2,7 @@
 // QCPUNKS SECTOR
 
 import type { ActivityState } from "../activity.js";
+import { sanitizeForTerminal } from "../sanitize.js";
 import { controlAnimation, freeImageRange, placeImage, removePlacement, uploadAnimation } from "../kitty-graphics.js";
 import type { MascotAtlas } from "./atlas.js";
 import { POSES, type Pose } from "./choreography.js";
@@ -88,7 +89,8 @@ export class MascotStage {
     if (this.shownId === null) return;
     const row = Math.floor((this.opts.rows - 1) / 2);
     const room = Math.max(8, this.opts.terminalColumns() - this.labelColumn - 1);
-    const fitted = label.length > room ? `${label.slice(0, room - 1)}…` : label;
+    const clean = sanitizeForTerminal(label).replace(/\n/g, " "); // labels carry model-chosen paths/commands
+    const fitted = clean.length > room ? `${clean.slice(0, room - 1)}…` : clean;
     const styled = this.opts.styleLabel ? this.opts.styleLabel(fitted) : fitted;
     this.opts.write(`\x1b8${row > 0 ? `\x1b[${row}B` : ""}\x1b[${this.labelColumn}C\x1b[K${styled}\x1b8`);
   }

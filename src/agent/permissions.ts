@@ -2,6 +2,7 @@
 // QCPUNKS SECTOR
 
 import * as readline from "node:readline/promises";
+import { sanitizeForTerminal } from "../ui/sanitize.js";
 import chalk from "chalk";
 import type { PermissionMode } from "../config/index.js";
 import type { PermissionAction } from "../tools/registry.js";
@@ -77,7 +78,8 @@ export class PermissionGate {
 
     const severityColor =
       effectiveRisk === "critical" || effectiveRisk === "destructive" ? chalk.red : chalk.yellow;
-    const label = `${chalk.yellow("lattice")} wants to ${chalk.bold(action)} [${severityColor(riskLabel(effectiveRisk))}]: ${detail}`;
+    // The detail is model-chosen (a command, a path): never let it carry control codes that could restyle or spoof this prompt.
+    const label = `${chalk.yellow("lattice")} wants to ${chalk.bold(action)} [${severityColor(riskLabel(effectiveRisk))}]: ${sanitizeForTerminal(detail)}`;
     this.promptHooks?.beforePrompt();
     let answer: string;
     try {

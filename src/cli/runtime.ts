@@ -18,7 +18,7 @@ import { killAllManagedProcesses } from "../tools/shell.js";
 import { VeniceHttp } from "../providers/venice-http.js";
 import { ImageService } from "../media/image-service.js";
 import { VoiceController } from "../voice/controller.js";
-import { tightenTree } from "../security/private-storage.js";
+import { repairPrivateStorage } from "../security/private-storage.js";
 import { SpendLedger } from "../billing/ledger.js";
 import { BudgetGuard } from "../billing/budget.js";
 import { MeteredProvider } from "../billing/metered-provider.js";
@@ -58,7 +58,7 @@ export interface RuntimeOptions {
  */
 export async function buildRuntime(cfg: LatticeConfig, options: RuntimeOptions): Promise<Runtime> {
   // Repair permissions on data written before Lattice enforced owner-only storage.
-  const tightened = tightenTree(cfg.dataDir) + tightenTree(cfg.globalConfigDir);
+  const tightened = repairPrivateStorage(cfg.dataDir, cfg.globalConfigDir);
   const auditLog = createAuditLogger(cfg.dataDir, options.debug);
   if (tightened > 0) auditLog({ type: "private_storage_repaired", entries: tightened });
 

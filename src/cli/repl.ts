@@ -2,6 +2,7 @@
 // QCPUNKS SECTOR
 
 import * as readline from "node:readline/promises";
+import { sanitizeForTerminal } from "../ui/sanitize.js";
 import { stdin, stdout } from "node:process";
 import type { LatticeConfig } from "../config/index.js";
 import type { Runtime } from "./runtime.js";
@@ -138,7 +139,7 @@ export async function runInteractive(
     try {
       const transcript = await runtime.voice.captureUtterance(rl, currentAbort.signal);
       if (!transcript) return "";
-      console.log(theme.dim("  you said: ") + transcript);
+      console.log(theme.dim("  you said: ") + sanitizeForTerminal(transcript));
       return transcript;
     } catch (err) {
       console.log(theme.error(`  [voice] ${(err as Error).message}`));
@@ -195,20 +196,20 @@ export async function runInteractive(
       await runtime.loop.run(state.session.history, runtime.ctx, {
         onTextDelta: (delta) => {
           if (activity) quiet();
-          stdout.write(delta);
+          stdout.write(sanitizeForTerminal(delta));
           speech.onText(delta);
         },
         onToolCallStart: (name, args) => {
           speech.onPause();
           quiet();
           console.log();
-          console.log(theme.tool(`  → ${name}`) + theme.dim(` ${truncateArgs(args)}`));
+          console.log(theme.tool(`  → ${sanitizeForTerminal(name)}`) + theme.dim(` ${truncateArgs(sanitizeForTerminal(args))}`));
           act(activityForTool(name), labelForTool(name, args));
         },
         onToolResult: (name, result, isError) => {
           quiet();
           const color = isError ? theme.error : theme.dim;
-          console.log(color(`  ${isError ? "✗" : "✓"} ${firstLine(result)}`));
+          console.log(color(`  ${isError ? "✗" : "✓"} ${firstLine(sanitizeForTerminal(result))}`));
           act("thinking", "thinking…");
         },
         onCompaction: (result) => {

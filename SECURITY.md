@@ -46,6 +46,15 @@ manipulate the model.
   first, and destructive/critical actions always ask in every mode. Treat
   `auto` mode in an untrusted repo as trusting that repo.
 
+- **Terminal escape injection:** blocked. Everything Lattice doesn't
+  control (model replies, tool arguments and results, command output,
+  labels, transcripts, names from the Venice catalog) has control codes
+  stripped before it's printed, so a file the agent reads can't set your
+  clipboard, spoof a prompt, or drive a terminal with remote control enabled.
+  If you use Kitty, prefer `allow_remote_control socket-only` (or `no`) in
+  `kitty.conf`: with `yes`, any program that prints to the terminal (not
+  just Lattice) can send it commands.
+
 ### 2. Other accounts on the same machine
 
 - Session files, the audit log, arena runs, and the global config are
@@ -89,7 +98,10 @@ verify them.
 
 ### 6. The accidental publish
 
-- Lattice v3 branches are blocked from `git push` by a local pre-push hook.
+- The v3 repository can push only to local paths (the encrypted vault
+  backup). A pre-push hook refuses every network remote, whatever branch,
+  tag, or commit is named.
+- `package.json` is marked `"private": true`, so `npm publish` refuses.
 - An image folder inside a git repository triggers a warning at setup.
 - `.env` and `.lattice/` are gitignored.
 

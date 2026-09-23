@@ -2,6 +2,7 @@
 // QCPUNKS SECTOR
 
 import { VOICE_MODES, isVoiceMode, type LatticeConfig } from "../../config/index.js";
+import { sanitizeForTerminal } from "../../ui/sanitize.js";
 import { listAudioSources, pickMicrophone } from "../../media/audio-io.js";
 import { VOICE_MODE_DESCRIPTIONS, type VoiceController } from "../../voice/controller.js";
 import { theme } from "../../ui/theme.js";
@@ -50,7 +51,7 @@ export async function runVoiceCommand(voice: VoiceController, cfg: LatticeConfig
           return;
         }
         // Kokoro voice ids: first letter = accent (a: American, b: British, …), second = f/m.
-        console.log(voices.map((v) => (v === cfg.voice.voice ? theme.success(`● ${v}`) : `  ${v}`)).join("\n"));
+        console.log(voices.map((raw) => sanitizeForTerminal(raw)).map((v) => (v === cfg.voice.voice ? theme.success(`● ${v}`) : `  ${v}`)).join("\n"));
         return;
       }
       case "voice":
@@ -64,7 +65,7 @@ export async function runVoiceCommand(voice: VoiceController, cfg: LatticeConfig
           const marker = m.id === cfg.voice.ttsModel ? theme.success("●") : " ";
           const privacy = m.privacy === "private" ? theme.success("private   ") : theme.warning(m.privacy.padEnd(10));
           const price = m.usdPerMillionChars !== null ? `$${m.usdPerMillionChars}/M chars` : "";
-          console.log(`${marker} ${theme.bold(m.id.padEnd(28))} ${privacy} ${theme.dim(price)}`);
+          console.log(`${marker} ${theme.bold(sanitizeForTerminal(m.id).padEnd(28))} ${privacy} ${theme.dim(price)}`);
         }
         return;
       }

@@ -1,6 +1,7 @@
 {
   "copyright": "All Rights Reserved: Jevante Boxley / QCPUNKS SECTOR",
   "name": "lattice-agent",
+  "private": true,
   "version": "0.1.0",
   "description": "LATTICE - Personal terminal AI development agent (Venice AI provider)",
   "type": "module",

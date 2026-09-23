@@ -2,6 +2,7 @@
 // QCPUNKS SECTOR
 
 import type * as readline from "node:readline/promises";
+import { sanitizeForTerminal } from "../../ui/sanitize.js";
 import { spawn } from "node:child_process";
 import { theme } from "../../ui/theme.js";
 import { expandHome } from "../../config/index.js";
@@ -217,7 +218,7 @@ function printModels(models: ImageModelInfo[], currentId: string): void {
     const privacy = m.privacy === "private" ? theme.success("private   ") : theme.warning(`${m.privacy.padEnd(10)}`);
     const price = m.priceUsd !== null ? `$${m.priceUsd.toFixed(2)}` : "  ?  ";
     const tags = m.uncensored ? theme.dim(" [uncensored]") : "";
-    console.log(`${marker} ${theme.bold(m.id.padEnd(28))} ${privacy} ${price.padStart(6)}  ${theme.dim(formatSizing(m))}${tags}`);
+    console.log(`${marker} ${theme.bold(sanitizeForTerminal(m.id).padEnd(28))} ${privacy} ${price.padStart(6)}  ${theme.dim(sanitizeForTerminal(formatSizing(m)))}${tags}`);
   }
   console.log(theme.dim("\nprivate = runs on Venice, prompts not stored · anonymized = forwarded to a third-party provider"));
 }

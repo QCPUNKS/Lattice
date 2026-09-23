@@ -32,14 +32,17 @@ export async function writePrivateFile(file: string, contents: string): Promise<
 }
 
 /**
- * Tightens everything under `root` that's more permissive than owner-only.
- * Repairs data written by older Lattice versions. Never follows symlinks and
- * never changes contents. Returns how many entries were tightened.
+ * Tightens `root` (and, when `recursive`, everything under it) that's more
+ * permissive than owner-only. Never follows symlinks and never changes
+ * contents. Returns how many entries were tightened.
+ *
+ * Only ever point this at Lattice's own private data: it drops execute bits,
+ * so running it over code (arena worktrees, a Python venv) would break it.
  */
-export function tightenTree(root: string): number {
+export function tightenTree(root: string, recursive = true): number {
   if (!existsSync(root)) return 0;
   let changed = 0;
-  const visit = (p: string) => {
+  const visit = (p: string, depth: number) => {
     const st = lstatSync(p, { throwIfNoEntry: false });
     if (!st || st.isSymbolicLink()) return;
     const want = st.isDirectory() ? PRIVATE_DIR_MODE : PRIVATE_FILE_MODE;
@@ -51,12 +54,31 @@ export function tightenTree(root: string): number {
         // not ours / read-only fs — leave it
       }
     }
-    if (st.isDirectory()) {
+    if (st.isDirectory() && (recursive || depth === 0)) {
       for (const entry of readdirSync(p, { withFileTypes: true })) {
-        if (!entry.isSymbolicLink()) visit(path.join(p, entry.name));
+        if (entry.isSymbolicLink()) continue;
+        // Shallow mode tightens the directory and the files directly in it, not subfolders.
+        if (!recursive && entry.isDirectory()) continue;
+        visit(path.join(p, entry.name), depth + 1);
       }
     }
   };
-  visit(root);
+  visit(root, 0);
   return changed;
+}
+
+/**
+ * Repairs permissions on data written before Lattice enforced owner-only
+ * storage — exactly the private data, by name. Everything else under the
+ * data directory is left alone: arena worktrees hold the user's code, and
+ * voice-env is a Python install whose executables must stay executable.
+ */
+export function repairPrivateStorage(dataDir: string, configDir: string): number {
+  return (
+    tightenTree(configDir) +
+    tightenTree(dataDir, false) + // the folder itself and files in it (audit.log)
+    tightenTree(path.join(dataDir, "sessions")) +
+    tightenTree(path.join(dataDir, "spend")) +
+    tightenTree(path.join(dataDir, "arena"), false) // run records only, never the worktrees under it
+  );
 }

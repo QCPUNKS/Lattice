@@ -2,6 +2,7 @@
 // QCPUNKS SECTOR
 
 import { theme } from "./theme.js";
+import { sanitizeForTerminal } from "./sanitize.js";
 
 /**
  * What Lattice is doing right now. This is the single source of truth the
@@ -71,7 +72,7 @@ export function startActivity(state: ActivityState, label: string): ActivityHand
 
   const animate = Boolean(process.stdout.isTTY) && process.env.LATTICE_REDUCED_MOTION !== "1";
   if (!animate) {
-    console.log(theme.dim(`  ${label}`));
+    console.log(theme.dim(`  ${sanitizeForTerminal(label)}`));
     return { update: () => {}, stop: () => {} };
   }
 
@@ -80,7 +81,7 @@ export function startActivity(state: ActivityState, label: string): ActivityHand
   const color = state === "listening" ? theme.error : theme.primary;
   const draw = () => {
     const glyph = state === "listening" ? "●" : SPINNER_FRAMES[frame % SPINNER_FRAMES.length];
-    process.stdout.write(`\r\x1b[2K  ${color(glyph)} ${theme.dim(current)}`);
+    process.stdout.write(`\r\x1b[2K  ${color(glyph)} ${theme.dim(sanitizeForTerminal(current).replace(/\n/g, " "))}`);
     frame++;
   };
   draw();
