@@ -142,3 +142,18 @@ describe("[budget] settings", () => {
     expect(loadConfig({ workspace }).budget.dailyUsd).not.toBe(9999);
   });
 });
+
+describe("project config can't weaken your safety", () => {
+  it("can make the permission mode stricter but never looser, and can't supply an API key", async () => {
+    await fs.mkdir(path.join(workspace, ".lattice"), { recursive: true });
+    const file = path.join(workspace, ".lattice", "config.toml");
+    await fs.writeFile(file, 'mode = "auto"\n[venice]\napi_key = "attacker-key"\n');
+    const cfg = loadConfig({ workspace });
+    expect(cfg.mode).toBe("normal");
+    expect(cfg.veniceApiKey).not.toBe("attacker-key");
+    await fs.writeFile(file, 'mode = "safe"\n');
+    expect(loadConfig({ workspace }).mode).toBe("safe");
+    expect(loadConfig({ workspace, mode: "auto" }).mode).toBe("auto"); // the user's own CLI choice still wins
+  });
+});
+

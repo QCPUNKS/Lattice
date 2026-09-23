@@ -242,6 +242,8 @@ function isPermissionMode(v: unknown): v is PermissionMode {
   return v === "safe" || v === "normal" || v === "auto";
 }
 
+const MODE_STRICTNESS: Record<PermissionMode, number> = { safe: 2, normal: 1, auto: 0 };
+
 export function isVoiceMode(v: unknown): v is VoiceMode {
   return (VOICE_MODES as readonly unknown[]).includes(v);
 }
@@ -317,12 +319,14 @@ export function loadConfig(overrides: ConfigOverrides = {}): LatticeConfig {
   // --- global config (~/.config/lattice/config.toml) ---
   for (const toml of [globalToml, projectToml]) {
     if (!toml) continue;
+    const isProject = toml === projectToml;
     if (toml.model) model = toml.model;
     if (toml.mode) {
       if (!isPermissionMode(toml.mode)) throw new Error(`Invalid mode in config.toml: ${toml.mode}`);
-      mode = toml.mode;
+      // A project config arrives with whatever repo was cloned: it may make the
+      // mode stricter, never looser (e.g. a repo can't switch you to "auto").
+      if (!isProject || MODE_STRICTNESS[toml.mode] >= MODE_STRICTNESS[mode]) mode = toml.mode;
     }
-    if (toml.venice?.api_key && !veniceApiKey) veniceApiKey = toml.venice.api_key;
     if (toml.generation?.temperature !== undefined) temperature = toml.generation.temperature;
     if (toml.generation?.max_tokens !== undefined) maxTokens = toml.generation.max_tokens;
     if (toml.agent?.max_iterations !== undefined) maxIterations = toml.agent.max_iterations;
@@ -338,6 +342,7 @@ export function loadConfig(overrides: ConfigOverrides = {}): LatticeConfig {
   // able to redirect your bearer token or your files.
   if (globalToml) {
     if (globalToml.venice?.base_url) veniceBaseUrl = globalToml.venice.base_url;
+    if (globalToml.venice?.api_key && !veniceApiKey) veniceApiKey = globalToml.venice.api_key;
     applyImageToml(image, globalToml.image);
     applyBudgetToml(budget, globalToml.budget); // a cloned repo must not be able to raise your spending limits
     applyVoiceToml(voice, globalToml.voice);

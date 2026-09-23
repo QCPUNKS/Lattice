@@ -29,6 +29,9 @@ manipulate the model.
 - **API key theft by redirection:** blocked. `venice.base_url` is read from
   the global config only; a project config can't point your bearer token at
   another server. Any base URL must be HTTPS (plain HTTP only for loopback).
+- **Loosening your safety settings:** blocked. A project config may make the
+  permission mode *stricter* but never looser (a repo can't switch you to
+  `auto`), can't supply an API key, and can't raise `[budget]` limits.
 - **Redirecting images or the microphone:** blocked. All `[image]` and
   `[voice]` settings are global-config only.
 - **Symlink escape from the workspace:** blocked. File tools resolve real
