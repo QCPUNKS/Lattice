@@ -38,8 +38,15 @@ function needsConfirmation(mode: PermissionMode, risk: CommandRisk): boolean {
  * Tracks per-session "always allow" decisions so the user isn't re-prompted
  * for the same (action, risk) combination repeatedly within one run.
  */
+export interface PromptHooks {
+  /** Called right before the gate asks the user (e.g. to clear an animated status area). */
+  beforePrompt(): void;
+  afterPrompt(): void;
+}
+
 export class PermissionGate {
   private alwaysAllow = new Set<string>();
+  private promptHooks: PromptHooks | null = null;
 
   constructor(
     private mode: PermissionMode,
@@ -71,11 +78,13 @@ export class PermissionGate {
     const severityColor =
       effectiveRisk === "critical" || effectiveRisk === "destructive" ? chalk.red : chalk.yellow;
     const label = `${chalk.yellow("lattice")} wants to ${chalk.bold(action)} [${severityColor(riskLabel(effectiveRisk))}]: ${detail}`;
-    const answer = (
-      await this.rl.question(`${label}\n  Allow? [y]es / [n]o / [a]lways this session: `)
-    )
-      .trim()
-      .toLowerCase();
+    this.promptHooks?.beforePrompt();
+    let answer: string;
+    try {
+      answer = (await this.rl.question(`${label}\n  Allow? [y]es / [n]o / [a]lways this session: `)).trim().toLowerCase();
+    } finally {
+      this.promptHooks?.afterPrompt();
+    }
 
     if (answer === "a" || answer === "always") {
       this.alwaysAllow.add(cacheKey);
@@ -89,6 +98,28 @@ export class PermissionGate {
 
     this.auditLog({ type: "permission_denied", action, detail, risk: effectiveRisk });
     throw new PermissionDeniedError(action, detail);
+  }
+
+  /**
+   * Asks a yes/no question outside the permission policy (e.g. budget limits),
+   * with the same prompt hooks so animated UI steps aside. Null when non-interactive.
+   */
+  confirmer(): ((question: string) => Promise<boolean>) | null {
+    const rl = this.rl;
+    if (!rl) return null;
+    return async (question) => {
+      this.promptHooks?.beforePrompt();
+      try {
+        const answer = (await rl.question(`${chalk.yellow("lattice")} ${question} [y/N]: `)).trim().toLowerCase();
+        return answer === "y" || answer === "yes";
+      } finally {
+        this.promptHooks?.afterPrompt();
+      }
+    };
+  }
+
+  setPromptHooks(hooks: PromptHooks | null): void {
+    this.promptHooks = hooks;
   }
 
   setMode(mode: PermissionMode): void {

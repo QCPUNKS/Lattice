@@ -5,7 +5,9 @@ import path from "node:path";
 
 /**
  * Default denylist of paths that are almost certainly credentials/secrets and
- * should never be silently read or sent to Venice. See spec §52.
+ * should never be silently read or sent to Venice. See spec §52. I Will be adding more deny paths to this list as I continue my journey about learning of all the secrets in life. 
+ * You know the world runs on secrets and lies. its actually crazy how so many just fake it til you make it.
+ *  While those who are the real ones get overlooked for those who are more verbose. 
  */
 const DENY_PATTERNS: RegExp[] = [
   /^\.env(\..+)?$/,

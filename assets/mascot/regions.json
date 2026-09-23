@@ -1,0 +1,601 @@
+{
+  "$comment": "Where each animation lives in the source sheets. box = [left, top, right, bottom] in sheet pixels. frames = expected frame count. split: 'captions' finds frame boundaries from the text caption centered under each frame (caption_y = top of the caption line, default: box bottom; caption_gap = max gap between words of one caption); otherwise frames are split on empty columns, then evenly. fps / loop drive playback. Rebuild with: python3 scripts/mascot/build_atlas.py keep_frames selects which split frames to use (skips any the split got wrong). sequences chain built animations onto one shared canvas (e.g. the intro). patches repaint baked-in details (text in a small pixel font) after cutting.",
+  "sheets": {
+    "core": "source/sheet-core.png",
+    "actions": "source/sheet-actions.png",
+    "sequences": "source/sheet-sequences.png",
+    "artifacts": "source/sheet-artifacts.png"
+  },
+  "animations": {
+    "idle": {
+      "sheet": "core",
+      "box": [
+        372,
+        130,
+        690,
+        268
+      ],
+      "frames": 4,
+      "fps": 3,
+      "loop": true
+    },
+    "walk": {
+      "sheet": "core",
+      "box": [
+        712,
+        130,
+        1048,
+        268
+      ],
+      "frames": 4,
+      "fps": 7,
+      "loop": true
+    },
+    "run": {
+      "sheet": "core",
+      "box": [
+        1062,
+        130,
+        1422,
+        268
+      ],
+      "frames": 4,
+      "fps": 9,
+      "loop": true
+    },
+    "jump": {
+      "sheet": "core",
+      "box": [
+        375,
+        308,
+        690,
+        455
+      ],
+      "frames": 4,
+      "fps": 7,
+      "loop": false
+    },
+    "type": {
+      "sheet": "core",
+      "box": [
+        712,
+        330,
+        1065,
+        445
+      ],
+      "frames": 4,
+      "fps": 6,
+      "loop": true
+    },
+    "turnaround": {
+      "sheet": "core",
+      "box": [
+        1085,
+        505,
+        1420,
+        638
+      ],
+      "frames": 4,
+      "fps": 4,
+      "loop": true,
+      "split": "captions",
+      "caption_gap": 9
+    },
+    "cheer": {
+      "sheet": "core",
+      "box": [
+        412,
+        500,
+        532,
+        632
+      ],
+      "frames": 1
+    },
+    "happy": {
+      "sheet": "core",
+      "box": [
+        550,
+        505,
+        642,
+        632
+      ],
+      "frames": 1
+    },
+    "think": {
+      "sheet": "core",
+      "box": [
+        655,
+        500,
+        790,
+        632
+      ],
+      "frames": 1
+    },
+    "surprised": {
+      "sheet": "core",
+      "box": [
+        790,
+        500,
+        915,
+        632
+      ],
+      "frames": 1
+    },
+    "wave": {
+      "sheet": "core",
+      "box": [
+        920,
+        505,
+        1045,
+        632
+      ],
+      "frames": 1
+    },
+    "faces": {
+      "sheet": "core",
+      "box": [
+        372,
+        708,
+        955,
+        808
+      ],
+      "frames": 5,
+      "labels": [
+        "normal",
+        "smile",
+        "wink",
+        "blush",
+        "determined"
+      ],
+      "split": "captions",
+      "caption_gap": 9
+    },
+    "sleep_scene": {
+      "sheet": "core",
+      "box": [
+        1118,
+        848,
+        1418,
+        1030
+      ],
+      "frames": 1,
+      "keep_background": true,
+      "inset": 3
+    },
+    "expressions": {
+      "sheet": "actions",
+      "box": [
+        320,
+        478,
+        1235,
+        596
+      ],
+      "frames": 7,
+      "labels": [
+        "normal",
+        "smile",
+        "wink",
+        "surprised",
+        "angry",
+        "blush",
+        "sleepy"
+      ],
+      "split": "captions",
+      "caption_gap": 9
+    },
+    "point": {
+      "sheet": "actions",
+      "box": [
+        300,
+        690,
+        432,
+        838
+      ],
+      "frames": 1
+    },
+    "think_bubble": {
+      "sheet": "actions",
+      "box": [
+        455,
+        690,
+        560,
+        838
+      ],
+      "frames": 1
+    },
+    "heart": {
+      "sheet": "actions",
+      "box": [
+        590,
+        690,
+        712,
+        838
+      ],
+      "frames": 1
+    },
+    "cheer_arms": {
+      "sheet": "actions",
+      "box": [
+        725,
+        690,
+        845,
+        838
+      ],
+      "frames": 1
+    },
+    "shocked": {
+      "sheet": "actions",
+      "box": [
+        855,
+        695,
+        960,
+        838
+      ],
+      "frames": 1
+    },
+    "hacking": {
+      "sheet": "actions",
+      "box": [
+        970,
+        700,
+        1090,
+        838
+      ],
+      "frames": 1
+    },
+    "console_sit": {
+      "sheet": "actions",
+      "box": [
+        1110,
+        680,
+        1240,
+        840
+      ],
+      "frames": 1
+    },
+    "token_fill": {
+      "sheet": "sequences",
+      "box": [
+        20,
+        130,
+        845,
+        244
+      ],
+      "frames": 11,
+      "fps": 5,
+      "loop": false,
+      "split": "captions",
+      "caption_gap": 12,
+      "caption_y": 246
+    },
+    "token_spend": {
+      "sheet": "sequences",
+      "box": [
+        20,
+        302,
+        845,
+        417
+      ],
+      "frames": 9,
+      "fps": 6,
+      "loop": false,
+      "split": "captions",
+      "caption_gap": 12,
+      "caption_y": 419
+    },
+    "climb": {
+      "sheet": "sequences",
+      "box": [
+        870,
+        105,
+        1520,
+        256
+      ],
+      "frames": 8,
+      "fps": 6,
+      "loop": false,
+      "split": "captions",
+      "caption_gap": 12,
+      "caption_y": 258
+    },
+    "climb_top": {
+      "sheet": "sequences",
+      "box": [
+        870,
+        282,
+        1520,
+        408
+      ],
+      "frames": 6,
+      "fps": 5,
+      "loop": false,
+      "split": "captions",
+      "caption_gap": 12,
+      "caption_y": 410,
+      "keep_frames": [
+        0,
+        3,
+        4,
+        5
+      ]
+    },
+    "expr_neutral": {
+      "sheet": "sequences",
+      "box": [
+        22,
+        512,
+        340,
+        586
+      ],
+      "frames": 6,
+      "labels": [
+        "normal",
+        "smile",
+        "serious",
+        "focused",
+        "curious",
+        "listening"
+      ],
+      "split": "captions",
+      "caption_gap": 9,
+      "caption_y": 588
+    },
+    "expr_positive": {
+      "sheet": "sequences",
+      "box": [
+        352,
+        512,
+        675,
+        586
+      ],
+      "frames": 8,
+      "labels": [
+        "happy",
+        "excited",
+        "laughing",
+        "proud",
+        "cheerful",
+        "heart_eyes",
+        "wink",
+        "blush"
+      ],
+      "split": "captions",
+      "caption_gap": 9,
+      "caption_y": 588
+    },
+    "expr_thinking": {
+      "sheet": "sequences",
+      "box": [
+        22,
+        650,
+        670,
+        710
+      ],
+      "frames": 10,
+      "labels": [
+        "thinking",
+        "confused",
+        "curious",
+        "suspicious",
+        "processing",
+        "hmm",
+        "look_up",
+        "side_look",
+        "retry",
+        "complete"
+      ],
+      "split": "captions",
+      "caption_gap": 12,
+      "caption_y": 712
+    },
+    "expr_comedic": {
+      "sheet": "sequences",
+      "box": [
+        22,
+        768,
+        670,
+        834
+      ],
+      "frames": 10,
+      "labels": [
+        "shocked",
+        "surprised",
+        "angry",
+        "annoyed",
+        "embarrassed",
+        "sleepy",
+        "exhausted",
+        "deadpan",
+        "what",
+        "evil_grin"
+      ],
+      "split": "captions",
+      "caption_gap": 9,
+      "caption_y": 836
+    },
+    "build": {
+      "sheet": "sequences",
+      "box": [
+        905,
+        510,
+        1515,
+        592
+      ],
+      "frames": 6,
+      "fps": 4,
+      "loop": true,
+      "split": "captions",
+      "caption_gap": 9
+    },
+    "build_finish": {
+      "sheet": "sequences",
+      "box": [
+        905,
+        612,
+        1515,
+        691
+      ],
+      "frames": 6,
+      "fps": 4,
+      "loop": false,
+      "split": "captions",
+      "caption_gap": 12,
+      "caption_y": 693
+    },
+    "program": {
+      "sheet": "sequences",
+      "box": [
+        905,
+        738,
+        1515,
+        800
+      ],
+      "frames": 10,
+      "fps": 5,
+      "loop": true,
+      "split": "captions",
+      "caption_gap": 9,
+      "keep_frames": [
+        0,
+        1,
+        2,
+        4
+      ]
+    },
+    "test_result": {
+      "sheet": "sequences",
+      "box": [
+        905,
+        738,
+        1515,
+        800
+      ],
+      "frames": 10,
+      "split": "captions",
+      "caption_gap": 9,
+      "keep_frames": [
+        5,
+        6
+      ],
+      "labels": [
+        "pass",
+        "fail"
+      ]
+    }
+  },
+  "props": {
+    "title": {
+      "sheet": "artifacts",
+      "box": [
+        60,
+        85,
+        560,
+        340
+      ]
+    },
+    "starfield": {
+      "sheet": "artifacts",
+      "box": [
+        630,
+        45,
+        1122,
+        172
+      ],
+      "keep_background": true,
+      "inset": 4
+    },
+    "skyline": {
+      "sheet": "artifacts",
+      "box": [
+        630,
+        320,
+        1122,
+        420
+      ],
+      "keep_background": true,
+      "inset": 4
+    },
+    "stars": {
+      "sheet": "artifacts",
+      "box": [
+        1305,
+        55,
+        1515,
+        195
+      ],
+      "frames": 12,
+      "grid": [
+        4,
+        3
+      ]
+    },
+    "gems": {
+      "sheet": "artifacts",
+      "box": [
+        655,
+        720,
+        912,
+        770
+      ],
+      "frames": 6,
+      "labels": [
+        "blue",
+        "purple",
+        "pink",
+        "red",
+        "amber",
+        "green"
+      ]
+    },
+    "collectibles": {
+      "sheet": "artifacts",
+      "box": [
+        595,
+        840,
+        1110,
+        940
+      ],
+      "frames": 5,
+      "labels": [
+        "data_crystal",
+        "token",
+        "core",
+        "energy_cell",
+        "hologram"
+      ],
+      "split": "captions",
+      "caption_gap": 9
+    }
+  },
+  "sequences": {
+    "intro": {
+      "parts": [
+        "climb",
+        "climb_top"
+      ],
+      "fps": 6,
+      "loop": false
+    }
+  },
+  "patches": [
+    {
+      "$comment": "The sign she climbs onto originally read 'kitty' (the old name, and the terminal's). Now it reads her name.",
+      "target": "climb_top",
+      "frame": 1,
+      "erase": [
+        48,
+        100,
+        112,
+        124
+      ],
+      "text": "Kit10",
+      "at": [
+        51,
+        104
+      ],
+      "scale": 2,
+      "fill": "#f2a9ef",
+      "outline": "#462657"
+    }
+  ]
+}

@@ -60,16 +60,16 @@ lattice
 ```
 
 ```text
-╭────────────────────────────────────╮___________
-│ Lattice                                                                         │___________)
-│ Personal AI Development Agent                            ____________)
-│                                                                                        ____________)
-│ Model       deepseek-v4-flash-0731                          _____________)
-│ Provider    YOUR_API_KEY                                     _____________)                        
-│ Workspace   ~/Projects/my-app                              _____________)
-│ Mode        NORMAL                                                  │      
-│ Tools       26 built-in                                                  │ 
-╰────────────────────────────────────
+╭────────────────────────────────────\
+│ Lattice                                                     / \/\/\/\/\/\/\    \   
+│ Personal AI Development Agent      \ _______  / \    |
+│                                                                   |  \/    \/     |\     |
+│ Model       deepseek-v4-flash-0731     |                |       |
+│ Provider    YOUR_API_KEY                |      U       |        |                     
+│ Workspace   ~/Projects/my-app         |    \___/    |        /
+│ Mode        NORMAL                             |  ______   |      /              
+│ Tools       26 built-in                             \/  |       |  \/     /
+╰──────────────────────────────────── /
 
 Lattice› Fix the authentication bug and run the tests.
 ```
@@ -117,6 +117,32 @@ Then you decide:
 
 Nothing is merged automatically — the scorecard informs the decision, the diff review makes it, and losing branches are cleaned up on `/arena pick` or `/arena clean`.
 
+## Costs
+
+Venice output prices differ ~1,700× between models, so Lattice tracks every cent. After each answer it shows the turn's cost, today's total, and your Venice balance. `/cost` breaks spending down by session, day, month, and model. `/model` lists models cheapest first and warns when a switch multiplies your cost. Optional daily and monthly budgets are checked before every model call. Full guide: `docs/costs.md`.
+
+## Kit10
+
+In Kitty (and WezTerm, Ghostty, Konsole) Lattice v3 has **Kit10**, an animated mascot. She climbs in beside the gradient LATTICE wordmark at startup, then shows what the agent is doing: thinking, reading, typing, building, painting, listening, speaking. `/context` shows her token bag filling with the context window, and `/kit10` tours every pose. Animation runs inside the terminal, so it costs no CPU. `reduced_motion` holds still poses. Full guide: `docs/mascot.md`.
+
+## Voice
+
+Talk to Lattice and hear it answer, with input and output independently switchable:
+
+| `/voice chat` | `/voice dictate` | `/voice listen` | `/voice off` |
+|---|---|---|---|
+| speak → hear | speak → read | type → hear | type → read |
+
+Push-to-talk: **Enter on an empty line** starts recording, **Enter** sends, **Ctrl+C** cancels. Spoken replies skip code blocks and always print as captions. Audio never touches disk. Full guide: `docs/voice.md`.
+
+## Images
+
+```text
+lattice › /imagine a glass cube floating over a neon grid --aspect 16:9
+```
+
+Generates with your Venice image models, shows the result inline (Kitty, WezTerm, Ghostty, Konsole), and saves it owner-only to a folder you choose on first use. Private models only by default, and file names never contain your prompt. Settings live under `/image`. Full guide: `docs/images.md`.
+
 ## Security
 
 - Filesystem tools cannot read or write outside the workspace directory — every path is resolved and checked before use.
@@ -124,8 +150,11 @@ Nothing is merged automatically — the scorecard informs the decision, the diff
 - Destructive/critical shell commands (`rm`, `git reset --hard`, `sudo`, `chmod -R`, `dd`, ...) always require confirmation, in every autonomy mode.
 - API keys are never logged in full (`redactKey` shows only first/last 4 chars) and never appear in the audit trail.
 - Command and file output is truncated before being sent to the model, bounding both context usage and the blast radius of a runaway command.
+- Symlinks can't be used to escape the workspace: file tools check real paths, not just path text.
+- A project's `.lattice/config.toml` can't redirect your API key, image folder, or microphone. Those settings are global-config only.
+- Sessions, audit log, and config are owner-only (600/700) regardless of umask.
 
-Full policy table: `docs/permissions.md`.
+Full policy table: `docs/permissions.md`. Threat model and known gaps: `SECURITY.md`.
 
 ## Documentation
 
@@ -136,6 +165,11 @@ Full policy table: `docs/permissions.md`.
 - `docs/permissions.md` — the mode × risk policy table in full
 - `docs/providers.md` — the provider abstraction, adding a second backend
 - `docs/terminal-ui.md` — layout, keybindings, theming
+- `docs/voice.md` — voice modes, push-to-talk, microphones, privacy
+- `docs/mascot.md` — the mascot, visuals, `[ui]` settings, rebuilding the art
+- `docs/costs.md` — spend tracking, balance, budgets
+- `docs/images.md` — `/imagine`, `/image`, the agent's image tool, privacy
+- `SECURITY.md` — threat model, defenses, and known gaps
 - `docs/troubleshooting.md`
 
 ## Development

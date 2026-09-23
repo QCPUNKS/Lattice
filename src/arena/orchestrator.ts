@@ -109,7 +109,7 @@ async function runParticipant(
     projectConfigDir: path.join(worktreePath, ".lattice"),
   };
 
-  const runtime = await buildRuntime(participantCfg, { rl: null, debug: false });
+  const runtime = await buildRuntime(participantCfg, { rl: null, debug: false, paidTools: false });
 
   let tokensUsed = 0;
   const history: ChatMessage[] = [

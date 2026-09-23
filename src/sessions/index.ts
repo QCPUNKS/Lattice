@@ -6,6 +6,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import type { ChatMessage } from "../providers/types.js";
 import type { PermissionMode } from "../config/index.js";
+import { ensurePrivateDir, writePrivateFile } from "../security/private-storage.js";
 
 export interface StoredSession {
   id: string;
@@ -55,9 +56,9 @@ function sessionPath(sessionsDir: string, id: string): string {
 }
 
 export async function saveSession(sessionsDir: string, session: StoredSession): Promise<void> {
-  await fs.mkdir(sessionsDir, { recursive: true });
+  await ensurePrivateDir(sessionsDir);
   session.updatedAt = new Date().toISOString();
-  await fs.writeFile(sessionPath(sessionsDir, session.id), JSON.stringify(session, null, 2), "utf-8");
+  await writePrivateFile(sessionPath(sessionsDir, session.id), JSON.stringify(session, null, 2));
 }
 
 export async function loadSession(sessionsDir: string, id: string): Promise<StoredSession> {

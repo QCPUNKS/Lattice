@@ -49,7 +49,7 @@ model = "deepseek-v4-flash-0731"
 mode = "normal"
 
 [venice]
-base_url = "https://api.venice.ai/api/v1"
+base_url = "https://api.venice.ai/api/v1"   # global config only; must be HTTPS
 # api_key = "..."   # prefer VENICE_API_KEY / .env instead — see Security note below
 
 [workspace]
@@ -67,7 +67,51 @@ command_timeout = 120           # seconds, default run_command timeout
 
 [context]
 token_budget = 100000           # approximate; triggers automatic compaction near this limit
+
+[ui]
+mascot = true                       # animated mascot (Kitty graphics terminals)
+mascot_rows = 5
+intro = true
+reduced_motion = false
+background = "#050b12"              # false = leave the terminal's background alone
+
+# [budget], [image] and [voice] are read from the GLOBAL config only — see below.
+[budget]
+daily_usd = 2.00                    # optional; asks before going over
+monthly_usd = 20.00                 # optional
+warn_at = 0.8
+low_balance_usd = 1.00
+
+[image]
+output_dir = "~/Pictures/lattice"   # no default: asked on first /imagine
+safe_mode = true                    # Venice blurs adult content; asked on first /imagine
+model = "z-image-turbo"
+private_only = true                 # refuse models Venice forwards to third parties
+save_metadata = false               # .json sidecar with prompt/seed next to each image
+aspect_ratio = "1:1"
+
+[voice]
+mode = "off"                        # off | chat | dictate | listen
+# input_device = "alsa_input..."    # default: auto (never a .monitor source)
+stt_model = "openai/whisper-large-v3"
+tts_model = "tts-kokoro"
+voice = "af_sky"
+speed = 1.0                         # 0.25–4
+# language = "en"                   # ISO 639-1 hint; default auto-detect
+private_only = true
 ```
+
+### Settings a project config cannot change
+
+A project's `.lattice/config.toml` arrives with whatever repository you cloned,
+so it is not trusted with anything that decides where your data goes:
+`venice.base_url` (your API key is sent there), every `[budget]` limit
+(a repo must not be able to raise your spending), every `[image]` setting
+(where images are written), and every `[voice]` setting (which microphone is
+opened). Those are read from `~/.config/lattice/config.toml` only and are
+silently ignored in project configs.
+
+`/image` and `/voice` write their changes to the global config, owner-only (0600).
 
 `lattice config show` prints the effective merged configuration (secrets redacted). `lattice config set <key> <value>` writes to the **global** config, e.g. `lattice config set agent.max_iterations 50`.
 

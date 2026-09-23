@@ -16,6 +16,13 @@ import { theme } from "../ui/theme.js";
 import { displayName } from "../mcp/manager.js";
 import { runArena, type ArenaParticipantSpec } from "../arena/orchestrator.js";
 import { ArenaLiveView, formatArenaStatus } from "../ui/arena-live.js";
+import { runImagine, runImageSettings } from "./commands/imagine.js";
+import { runVoiceCommand } from "./commands/voice.js";
+import { runMascotCommand, tokenBagFrame } from "./commands/mascot.js";
+import { renderCostReport } from "./commands/cost.js";
+import { formatRate, priceTier, type PriceTier } from "../billing/pricing.js";
+import type { TextPricing } from "../providers/types.js";
+import type { MascotDirector } from "../ui/mascot/director.js";
 import {
   runArenaCommand,
   renderScorecard,
@@ -28,6 +35,8 @@ export interface ReplState {
   runtime: Runtime;
   session: StoredSession;
   rl: readline.Interface;
+  /** Present when the animated mascot is running (Kitty graphics terminal). */
+  director: MascotDirector | null;
 }
 
 export type SlashResult = "handled" | "exit" | "not-a-command";
@@ -41,9 +50,11 @@ const HELP_TEXT = `Slash commands:
   /tools                  list available tools (native + MCP)
   /mcp                    MCP server/tool status
   /context                approximate token usage
+  /cost, /spend           balance, spend this session/today/month, by model, budgets
   /compact                force context compaction now
   /clear                  clear the conversation (keeps system prompt)
   /reset                  clear conversation and start a new session
+  /forget                 permanently delete this conversation from disk and start fresh
   /session                show the current session
   /sessions               list saved sessions
   /save [label]           save the current session
@@ -67,9 +78,20 @@ const HELP_TEXT = `Slash commands:
   /arena pick <label>      merge a participant's work into your branch
   /arena list              show past and open arena runs
   /arena clean             discard the current open run without merging
+  /imagine <prompt> [opts] generate an image inline (/imagine alone for options)
+  /image                   image settings: setup, models, model <id>, output <path>, safe on|off, open
+  /voice [off|chat|dictate|listen]
+                           voice mode: speak and/or hear (each direction independent)
+  /talk                    speak one message now (Enter to send, Ctrl+C to cancel)
+  /voice help              voices, speed, microphone, and more
+  /mascot, /kit10 [on|off] tour Kit10's poses, or turn her on/off
   /quit, /exit             exit lattice`;
 
-export async function handleSlashCommand(input: string, state: ReplState): Promise<SlashResult> {
+export async function handleSlashCommand(
+  input: string,
+  state: ReplState,
+  signal?: AbortSignal,
+): Promise<SlashResult> {
   if (!input.startsWith("/")) return "not-a-command";
 
   const [cmd, ...rest] = input.trim().split(/\s+/);
@@ -94,7 +116,7 @@ export async function handleSlashCommand(input: string, state: ReplState): Promi
       for (const m of models) {
         const marker = m.id === cfg.model ? theme.success("● ") : "  ";
         console.log(
-          `${marker}${theme.bold(m.id)}  ctx=${formatContextTokens(m.contextLength)}  tools=${m.supportsTools}  reasoning=${m.supportsReasoning}  vision=${m.supportsVision}`,
+          `${marker}${theme.bold(m.id)}  ${formatPrice(m.pricing)}  ctx=${formatContextTokens(m.contextLength)}  tools=${m.supportsTools}  reasoning=${m.supportsReasoning}  vision=${m.supportsVision}`,
         );
       }
       return "handled";
@@ -133,9 +155,26 @@ export async function handleSlashCommand(input: string, state: ReplState): Promi
       return "handled";
     }
 
+    case "/cost":
+    case "/spend": {
+      if (state.director) {
+        state.director.showInline("token_spend", 8, `${theme.mascot("♥")} ${theme.bold("Spending")}`, 3);
+      }
+      await runtime.http.refreshBalance(signal).catch(() => null); // fall back to the last known balance offline
+      console.log(renderCostReport(runtime.spend.ledger, runtime.spend.budget, runtime.http.lastBalance()));
+      return "handled";
+    }
+
     case "/context": {
       const tokens = estimateHistoryTokens(state.session.history);
-      console.log(`~${tokens} tokens / ${cfg.contextTokenBudget} budget (${state.session.history.length} messages)`);
+      const summary = `~${tokens} tokens / ${cfg.contextTokenBudget} budget (${state.session.history.length} messages)`;
+      if (state.director) {
+        // The token bag fills as the context does.
+        const fraction = tokens / cfg.contextTokenBudget;
+        state.director.showInline("token_fill", tokenBagFrame(fraction), `${theme.mascot("♥")} ${summary}  ${theme.dim(`${Math.round(fraction * 100)}% full`)}`);
+      } else {
+        console.log(summary);
+      }
       return "handled";
     }
 
@@ -159,7 +198,29 @@ export async function handleSlashCommand(input: string, state: ReplState): Promi
       const systemMsg = state.session.history[0];
       state.session = sessions.createSession(cfg.workspace, cfg.model, cfg.mode);
       if (systemMsg) state.session.history.push(systemMsg);
+      runtime.spend.ledger.setSession(state.session.id);
       console.log(theme.dim(`New session started: ${state.session.id}`));
+      return "handled";
+    }
+
+    case "/forget": {
+      const answer = (await rl.question(theme.warning(`Permanently delete session ${state.session.id} from disk? [y/N]: `)))
+        .trim()
+        .toLowerCase();
+      if (answer !== "y" && answer !== "yes") {
+        console.log(theme.dim("Kept."));
+        return "handled";
+      }
+      const forgottenId = state.session.id;
+      await sessions.deleteSession(cfg.sessionsDir, forgottenId).catch((err: NodeJS.ErrnoException) => {
+        if (err.code !== "ENOENT") throw err; // never saved yet is fine
+      });
+      const systemMsg = state.session.history[0];
+      state.session = sessions.createSession(cfg.workspace, cfg.model, cfg.mode);
+      if (systemMsg?.role === "system") state.session.history.push(systemMsg);
+      runtime.spend.ledger.setSession(state.session.id);
+      runtime.auditLog({ type: "session_forgotten", id: forgottenId });
+      console.log(theme.success(`Deleted ${forgottenId}. New session: ${state.session.id}`));
       return "handled";
     }
 
@@ -193,6 +254,7 @@ export async function handleSlashCommand(input: string, state: ReplState): Promi
       }
       try {
         state.session = await sessions.loadSession(cfg.sessionsDir, arg);
+        runtime.spend.ledger.setSession(state.session.id);
         console.log(theme.success(`Loaded session ${state.session.id} (${state.session.history.length} messages)`));
       } catch (err) {
         console.log(theme.error(`Could not load session ${arg}: ${(err as Error).message}`));
@@ -347,6 +409,23 @@ export async function handleSlashCommand(input: string, state: ReplState): Promi
       return "handled";
     }
 
+    case "/imagine":
+      await runImagine(runtime.images, rl, arg, signal);
+      return "handled";
+
+    case "/image":
+      await runImageSettings(runtime.images, rl, arg, cfg.image);
+      return "handled";
+
+    case "/mascot":
+    case "/kit10":
+      await runMascotCommand(state.director, cfg, arg, signal);
+      return "handled";
+
+    case "/voice":
+      await runVoiceCommand(runtime.voice, cfg, arg);
+      return "handled";
+
     case "/quit":
     case "/exit":
       return "exit";
@@ -382,7 +461,10 @@ async function runModelPicker(state: ReplState): Promise<SlashResult> {
     return "handled";
   }
 
-  const selectable = models.filter((m) => m.supportsTools);
+  // Cheapest first: on Venice output prices span ~1,700x, so price is the first thing to see.
+  const selectable = models
+    .filter((m) => m.supportsTools)
+    .sort((a, b) => (a.pricing?.output ?? Infinity) - (b.pricing?.output ?? Infinity));
   const excluded = models.length - selectable.length;
 
   console.log(`Current model: ${theme.bold(cfg.model)}\n`);
@@ -395,9 +477,10 @@ async function runModelPicker(state: ReplState): Promise<SlashResult> {
     ].filter(Boolean).join(", ");
     const number = String(i + 1).padStart(width);
     console.log(
-      `${marker} ${theme.dim(number)}. ${theme.bold(m.id.padEnd(42))} ${formatContextTokens(m.contextLength).padStart(4)} ctx${tags ? theme.dim(`  [${tags}]`) : ""}`,
+      `${marker} ${theme.dim(number)}. ${theme.bold(m.id.padEnd(42))} ${formatPrice(m.pricing)} ${formatContextTokens(m.contextLength).padStart(4)} ctx${tags ? theme.dim(`  [${tags}]`) : ""}`,
     );
   });
+  console.log(theme.dim("\nPrices are $ per million tokens, input / output. Agent work is mostly output."));
   if (excluded > 0) {
     console.log(theme.dim(`\n(${excluded} models without tool-calling support hidden — the agent loop requires tools. See /models for everything.)`));
   }
@@ -425,9 +508,13 @@ async function runModelPicker(state: ReplState): Promise<SlashResult> {
 /** Switches the active model, warning (but not blocking) when the id is unknown or lacks tool support. */
 async function switchModel(state: ReplState, id: string): Promise<void> {
   const { cfg, runtime } = state;
+  const previous = cfg.model;
 
   try {
     const caps = await runtime.provider.capabilities(id);
+    const before = await runtime.provider.capabilities(previous).catch(() => null);
+    const comparison = compareCost(before?.pricing, caps?.pricing, previous);
+    if (comparison) console.log(comparison);
     if (!caps) {
       console.log(theme.warning(`"${id}" is not in Venice's current catalog — switching anyway (it may be new or renamed; /models lists what's available).`));
     } else if (!caps.supportsTools) {
@@ -440,6 +527,29 @@ async function switchModel(state: ReplState, id: string): Promise<void> {
   cfg.model = id;
   runtime.loop.setModel(id);
   console.log(theme.success(`Switched model to ${id}`));
+}
+
+const TIER_COLOR: Record<PriceTier, (s: string) => string> = {
+  budget: theme.success,
+  standard: (s) => s,
+  premium: theme.warning,
+  luxury: theme.error,
+};
+
+/** "$0.18 / $0.35" (in / out per M tokens), colored by price tier. */
+function formatPrice(pricing: TextPricing | null | undefined): string {
+  if (!pricing) return theme.dim("price ?".padEnd(17));
+  const text = `${formatRate(pricing.input).replace("/M", "")} / ${formatRate(pricing.output).replace("/M", "")}`.padEnd(17);
+  return TIER_COLOR[priceTier(pricing)!](text);
+}
+
+/** One-line warning/note when switching changes the price of work noticeably. */
+function compareCost(from: TextPricing | null | undefined, to: TextPricing | null | undefined, fromId: string): string | null {
+  if (!from || !to || from.output <= 0) return null;
+  const ratio = to.output / from.output;
+  if (ratio >= 1.5) return theme.warning(`Heads up: ~${ratio >= 10 ? Math.round(ratio) : ratio.toFixed(1)}× the cost of ${fromId} for the same work (${formatRate(to.output)} output).`);
+  if (ratio <= 0.67) return theme.success(`~${Math.round(1 / ratio)}× cheaper than ${fromId} (${formatRate(to.output)} output).`);
+  return null;
 }
 
 function printActionResult(result: actions.ActionResult | null, notDetectedMessage: string): void {

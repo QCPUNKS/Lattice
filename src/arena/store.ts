@@ -3,6 +3,7 @@
 
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { ensurePrivateDir, writePrivateFile } from "../security/private-storage.js";
 
 export interface ArenaParticipantResult {
   label: string;
@@ -43,8 +44,8 @@ function runPath(dataDir: string, runId: string): string {
 }
 
 export async function saveArenaRun(dataDir: string, run: ArenaRun): Promise<void> {
-  await fs.mkdir(arenaDir(dataDir), { recursive: true });
-  await fs.writeFile(runPath(dataDir, run.id), JSON.stringify(run, null, 2), "utf-8");
+  await ensurePrivateDir(arenaDir(dataDir));
+  await writePrivateFile(runPath(dataDir, run.id), JSON.stringify(run, null, 2));
 }
 
 export async function loadArenaRun(dataDir: string, runId: string): Promise<ArenaRun> {

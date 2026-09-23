@@ -44,6 +44,23 @@ export interface Usage {
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
+  /** Prompt tokens served from the provider's cache (billed at the cheaper cache rate). */
+  cachedTokens?: number;
+  /** What the provider actually charged for this request, when it reports it. */
+  costUsd?: number;
+}
+
+/** USD per million tokens. Venice publishes these per model in /models. */
+export interface TokenRates {
+  input: number;
+  output: number;
+  cacheInput?: number;
+  cacheWrite?: number;
+}
+
+export interface TextPricing extends TokenRates {
+  /** Higher rates that apply once the prompt exceeds `contextThreshold` tokens. */
+  extended?: TokenRates & { contextThreshold: number };
 }
 
 export interface ChatResult {
@@ -66,6 +83,10 @@ export interface ModelCapabilities {
   supportsTools: boolean;
   supportsReasoning: boolean;
   supportsVision: boolean;
+  /** Per-token prices, when the provider publishes them. */
+  pricing?: TextPricing | null;
+  /** "private" (provider-hosted, not stored) or "anonymized" (forwarded to a third party). */
+  privacy?: "private" | "anonymized" | "unknown";
   raw?: unknown;
 }
 

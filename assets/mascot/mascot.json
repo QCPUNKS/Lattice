@@ -1,0 +1,312 @@
+{
+  "version": 1,
+  "animations": {
+    "idle": {
+      "frames": 4,
+      "width": 66,
+      "height": 126,
+      "fps": 3,
+      "loop": true
+    },
+    "walk": {
+      "frames": 4,
+      "width": 77,
+      "height": 126,
+      "fps": 7,
+      "loop": true
+    },
+    "run": {
+      "frames": 4,
+      "width": 86,
+      "height": 123,
+      "fps": 9,
+      "loop": true
+    },
+    "jump": {
+      "frames": 4,
+      "width": 68,
+      "height": 135,
+      "fps": 7,
+      "loop": false
+    },
+    "type": {
+      "frames": 4,
+      "width": 88,
+      "height": 103,
+      "fps": 6,
+      "loop": true
+    },
+    "turnaround": {
+      "frames": 4,
+      "width": 69,
+      "height": 128,
+      "fps": 4,
+      "loop": true
+    },
+    "cheer": {
+      "frames": 1,
+      "width": 112,
+      "height": 125
+    },
+    "happy": {
+      "frames": 1,
+      "width": 80,
+      "height": 116
+    },
+    "think": {
+      "frames": 1,
+      "width": 125,
+      "height": 127
+    },
+    "surprised": {
+      "frames": 1,
+      "width": 120,
+      "height": 125
+    },
+    "wave": {
+      "frames": 1,
+      "width": 112,
+      "height": 122
+    },
+    "faces": {
+      "frames": 5,
+      "width": 120,
+      "height": 98,
+      "labels": [
+        "normal",
+        "smile",
+        "wink",
+        "blush",
+        "determined"
+      ]
+    },
+    "sleep_scene": {
+      "frames": 1,
+      "width": 294,
+      "height": 176
+    },
+    "expressions": {
+      "frames": 7,
+      "width": 125,
+      "height": 121,
+      "labels": [
+        "normal",
+        "smile",
+        "wink",
+        "surprised",
+        "angry",
+        "blush",
+        "sleepy"
+      ]
+    },
+    "point": {
+      "frames": 1,
+      "width": 133,
+      "height": 137
+    },
+    "think_bubble": {
+      "frames": 1,
+      "width": 104,
+      "height": 146
+    },
+    "heart": {
+      "frames": 1,
+      "width": 114,
+      "height": 142
+    },
+    "cheer_arms": {
+      "frames": 1,
+      "width": 115,
+      "height": 135
+    },
+    "shocked": {
+      "frames": 1,
+      "width": 91,
+      "height": 133
+    },
+    "hacking": {
+      "frames": 1,
+      "width": 109,
+      "height": 116
+    },
+    "console_sit": {
+      "frames": 1,
+      "width": 108,
+      "height": 163
+    },
+    "token_fill": {
+      "frames": 11,
+      "width": 92,
+      "height": 115,
+      "fps": 5,
+      "loop": false
+    },
+    "token_spend": {
+      "frames": 9,
+      "width": 108,
+      "height": 112,
+      "fps": 6,
+      "loop": false
+    },
+    "climb": {
+      "frames": 8,
+      "width": 82,
+      "height": 151,
+      "fps": 6,
+      "loop": false
+    },
+    "climb_top": {
+      "frames": 4,
+      "width": 136,
+      "height": 128,
+      "fps": 5,
+      "loop": false
+    },
+    "expr_neutral": {
+      "frames": 6,
+      "width": 56,
+      "height": 74,
+      "labels": [
+        "normal",
+        "smile",
+        "serious",
+        "focused",
+        "curious",
+        "listening"
+      ]
+    },
+    "expr_positive": {
+      "frames": 8,
+      "width": 48,
+      "height": 69,
+      "labels": [
+        "happy",
+        "excited",
+        "laughing",
+        "proud",
+        "cheerful",
+        "heart_eyes",
+        "wink",
+        "blush"
+      ]
+    },
+    "expr_thinking": {
+      "frames": 10,
+      "width": 63,
+      "height": 63,
+      "labels": [
+        "thinking",
+        "confused",
+        "curious",
+        "suspicious",
+        "processing",
+        "hmm",
+        "look_up",
+        "side_look",
+        "retry",
+        "complete"
+      ]
+    },
+    "expr_comedic": {
+      "frames": 10,
+      "width": 66,
+      "height": 70,
+      "labels": [
+        "shocked",
+        "surprised",
+        "angry",
+        "annoyed",
+        "embarrassed",
+        "sleepy",
+        "exhausted",
+        "deadpan",
+        "what",
+        "evil_grin"
+      ]
+    },
+    "build": {
+      "frames": 6,
+      "width": 106,
+      "height": 84,
+      "fps": 4,
+      "loop": true
+    },
+    "build_finish": {
+      "frames": 6,
+      "width": 107,
+      "height": 82,
+      "fps": 4,
+      "loop": false
+    },
+    "program": {
+      "frames": 4,
+      "width": 83,
+      "height": 64,
+      "fps": 5,
+      "loop": true
+    },
+    "test_result": {
+      "frames": 2,
+      "width": 50,
+      "height": 62,
+      "labels": [
+        "pass",
+        "fail"
+      ]
+    },
+    "intro": {
+      "frames": 12,
+      "width": 136,
+      "height": 151,
+      "fps": 6,
+      "loop": false
+    }
+  },
+  "props": {
+    "title": {
+      "frames": 1,
+      "width": 479,
+      "height": 254
+    },
+    "starfield": {
+      "frames": 1,
+      "width": 484,
+      "height": 119
+    },
+    "skyline": {
+      "frames": 1,
+      "width": 484,
+      "height": 92
+    },
+    "stars": {
+      "frames": 12,
+      "width": 39,
+      "height": 42
+    },
+    "gems": {
+      "frames": 6,
+      "width": 32,
+      "height": 49,
+      "labels": [
+        "blue",
+        "purple",
+        "pink",
+        "red",
+        "amber",
+        "green"
+      ]
+    },
+    "collectibles": {
+      "frames": 5,
+      "width": 100,
+      "height": 104,
+      "labels": [
+        "data_crystal",
+        "token",
+        "core",
+        "energy_cell",
+        "hologram"
+      ]
+    }
+  }
+}

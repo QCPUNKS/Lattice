@@ -16,6 +16,8 @@ export const theme = {
   system: chalk.dim.gray,
   user: chalk.bold.white,
   reasoning: chalk.blueBright,
+  /** Kit10's signature pink (design palette). */
+  mascot: chalk.hex("#ff4fa3"),
   dim: chalk.dim,
   bold: chalk.bold,
 };

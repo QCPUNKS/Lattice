@@ -8,7 +8,23 @@ import {
   ModelProvider,
   ProviderError,
   StreamEvent,
+  Usage,
 } from "./types.js";
+import { VeniceHttp } from "./venice-http.js";
+import { parseTextPricing } from "../billing/pricing.js";
+
+/** Venice usage object (+ its non-standard `cost` sibling) → Usage. */
+function parseUsage(raw: any, cost: any): Usage {
+  const cached = raw.prompt_tokens_details?.cached_tokens ?? raw.cache_read_input_tokens;
+  const costUsd = typeof cost?.usd === "number" && Number.isFinite(cost.usd) ? cost.usd : undefined;
+  return {
+    promptTokens: raw.prompt_tokens ?? 0,
+    completionTokens: raw.completion_tokens ?? 0,
+    totalTokens: raw.total_tokens ?? 0,
+    ...(typeof cached === "number" ? { cachedTokens: cached } : {}),
+    ...(costUsd !== undefined ? { costUsd } : {}),
+  };
+}
 
 interface VeniceProviderOptions {
   apiKey: string;
@@ -18,87 +34,20 @@ interface VeniceProviderOptions {
   defaultMaxTokens: number;
 }
 
-const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
-const MAX_RETRIES = 3;
-const BASE_BACKOFF_MS = 500;
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 export class VeniceProvider implements ModelProvider {
   readonly name = "venice";
   private modelCache: ModelCapabilities[] | null = null;
   private modelCacheAt = 0;
   private readonly MODEL_CACHE_TTL_MS = 5 * 60 * 1000;
 
-  constructor(private readonly opts: VeniceProviderOptions) {
-    if (!opts.apiKey) {
-      throw new ProviderError(
-        "VENICE_API_KEY is not set. Export it or add it to .env before running lattice.",
-      );
-    }
-  }
+  private readonly http: VeniceHttp;
 
-  private headers(): Record<string, string> {
-    return {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${this.opts.apiKey}`,
-    };
-  }
-
-  private async requestWithRetry(
-    url: string,
-    init: RequestInit,
-    signal?: AbortSignal,
-  ): Promise<Response> {
-    let lastErr: unknown;
-    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-      try {
-        const res = await fetch(url, { ...init, signal });
-        if (res.ok) return res;
-
-        const bodyText = await res.text().catch(() => "");
-        const retryable = RETRYABLE_STATUS.has(res.status);
-
-        if (retryable && attempt < MAX_RETRIES) {
-          const retryAfter = res.headers.get("retry-after");
-          const waitMs = retryAfter
-            ? Number(retryAfter) * 1000
-            : BASE_BACKOFF_MS * 2 ** attempt;
-          await sleep(waitMs);
-          continue;
-        }
-
-        throw new ProviderError(
-          `Venice API error ${res.status}: ${bodyText || res.statusText}`,
-          res.status,
-          retryable,
-        );
-      } catch (err) {
-        if (err instanceof ProviderError) {
-          lastErr = err;
-          if (!err.retryable || attempt >= MAX_RETRIES) throw err;
-          continue;
-        }
-        // Network-level failure (DNS, connection reset, abort, etc.)
-        if ((err as Error)?.name === "AbortError") {
-          throw new ProviderError("Request cancelled", undefined, false, err);
-        }
-        lastErr = err;
-        if (attempt < MAX_RETRIES) {
-          await sleep(BASE_BACKOFF_MS * 2 ** attempt);
-          continue;
-        }
-        throw new ProviderError(
-          `Network error contacting Venice API: ${(err as Error).message}`,
-          undefined,
-          false,
-          err,
-        );
-      }
-    }
-    throw new ProviderError("Exhausted retries contacting Venice API", undefined, false, lastErr);
+  /** Pass `http` to share one transport (and its balance tracking) with the media clients. */
+  constructor(
+    private readonly opts: VeniceProviderOptions,
+    http?: VeniceHttp,
+  ) {
+    this.http = http ?? new VeniceHttp(opts.apiKey, opts.baseUrl);
   }
 
   private buildBody(options: ChatRequestOptions, stream: boolean) {
@@ -110,15 +59,21 @@ export class VeniceProvider implements ModelProvider {
       max_completion_tokens: options.maxTokens ?? this.opts.defaultMaxTokens,
       parallel_tool_calls: options.parallelToolCalls ?? true,
       stream,
+      // Ask for the final usage chunk (token counts + Venice's actual charge).
+      ...(stream ? { stream_options: { include_usage: true } } : {}),
+      // Venice otherwise prepends its own ~1.7k-token system prompt to every
+      // request: paid for on each call, and it injects Venice's persona into
+      // the coding agent's instructions.
+      venice_parameters: { include_venice_system_prompt: false },
     };
   }
 
   async chat(options: ChatRequestOptions): Promise<ChatResult> {
-    const res = await this.requestWithRetry(
-      `${this.opts.baseUrl}/chat/completions`,
+    const res = await this.http.request(
+      "/chat/completions",
       {
         method: "POST",
-        headers: this.headers(),
+        headers: this.http.jsonHeaders(),
         body: JSON.stringify(this.buildBody(options, false)),
       },
       options.signal,
@@ -137,22 +92,16 @@ export class VeniceProvider implements ModelProvider {
         tool_calls: choice.message?.tool_calls,
       },
       finishReason: choice.finish_reason ?? null,
-      usage: data.usage
-        ? {
-            promptTokens: data.usage.prompt_tokens ?? 0,
-            completionTokens: data.usage.completion_tokens ?? 0,
-            totalTokens: data.usage.total_tokens ?? 0,
-          }
-        : undefined,
+      usage: data.usage ? parseUsage(data.usage, data.cost) : undefined,
     };
   }
 
   async *stream(options: ChatRequestOptions): AsyncGenerator<StreamEvent, void, unknown> {
-    const res = await this.requestWithRetry(
-      `${this.opts.baseUrl}/chat/completions`,
+    const res = await this.http.request(
+      "/chat/completions",
       {
         method: "POST",
-        headers: this.headers(),
+        headers: this.http.jsonHeaders(),
         body: JSON.stringify(this.buildBody(options, true)),
       },
       options.signal,
@@ -193,6 +142,12 @@ export class VeniceProvider implements ModelProvider {
             continue; // skip malformed SSE chunk rather than crashing the agent loop
           }
 
+          // The usage chunk arrives last with an empty choices array — read it
+          // before skipping choice-less chunks.
+          if (json.usage) {
+            yield { type: "usage", usage: parseUsage(json.usage, json.cost) };
+          }
+
           const choice = json.choices?.[0];
           if (!choice) continue;
 
@@ -224,17 +179,6 @@ export class VeniceProvider implements ModelProvider {
             }
           }
 
-          if (json.usage) {
-            yield {
-              type: "usage",
-              usage: {
-                promptTokens: json.usage.prompt_tokens ?? 0,
-                completionTokens: json.usage.completion_tokens ?? 0,
-                totalTokens: json.usage.total_tokens ?? 0,
-              },
-            };
-          }
-
           if (choice.finish_reason) {
             yield { type: "done", finishReason: choice.finish_reason };
           }
@@ -250,9 +194,9 @@ export class VeniceProvider implements ModelProvider {
       return this.modelCache;
     }
 
-    const res = await this.requestWithRetry(`${this.opts.baseUrl}/models`, {
+    const res = await this.http.request("/models", {
       method: "GET",
-      headers: this.headers(),
+      headers: this.http.authHeaders(),
     });
     const data: any = await res.json();
     const list = Array.isArray(data.data) ? data.data : [];
@@ -268,6 +212,8 @@ export class VeniceProvider implements ModelProvider {
         supportsTools: Boolean(caps.supportsFunctionCalling),
         supportsReasoning: Boolean(caps.supportsReasoning),
         supportsVision: Boolean(caps.supportsVision),
+        pricing: parseTextPricing(spec.pricing),
+        privacy: spec.privacy === "private" || spec.privacy === "anonymized" ? spec.privacy : "unknown",
         raw: m,
       } satisfies ModelCapabilities;
     });

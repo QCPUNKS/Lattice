@@ -109,5 +109,5 @@ export async function loadAgentState(projectConfigDir: string): Promise<AgentSta
 export async function saveAgentState(projectConfigDir: string, state: AgentState): Promise<void> {
   await fs.mkdir(path.join(projectConfigDir, "state"), { recursive: true });
   state.updatedAt = new Date().toISOString();
-  await fs.writeFile(statePath(projectConfigDir), JSON.stringify(state, null, 2), "utf-8");
+  await fs.writeFile(statePath(projectConfigDir), JSON.stringify(state, null, 2), "utf-8");   
 }

@@ -15,6 +15,10 @@
 
 **Project** — `detect_project_type`, `inspect_project`
 
+**Media** — `generate_image` (Venice image generation into your configured image folder, with optional `copy_to` into the workspace; permission-gated with a cost estimate, max 2 per call, disabled in arena runs, and model/safe-mode/privacy choices reserved for the user — see `docs/images.md`)
+
+All filesystem paths are checked against the workspace both lexically and through symlinks (real paths), so a symlink planted inside the workspace can't be used to reach outside it.
+
 ## MCP tools
 
 Every tool discovered from a connected MCP server is registered as `mcp__<server>__<tool>` (shown in logs as `mcp.<server>.<tool>`). See `docs/mcp.md`.

@@ -157,8 +157,62 @@ describe("VeniceProvider", () => {
         supportsTools: true,
         supportsReasoning: false,
         supportsVision: true,
+        pricing: null,
+        privacy: "unknown",
         raw: expect.anything(),
       },
     ]);
+  });
+
+  it("getModels() parses per-token pricing, cache rates, the extended tier, and privacy", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        data: [
+          {
+            id: "qwen-3-7-plus",
+            model_spec: {
+              privacy: "anonymized",
+              capabilities: { supportsFunctionCalling: true },
+              pricing: {
+                input: { usd: 0.5 },
+                cache_input: { usd: 0.05 },
+                output: { usd: 2 },
+                extended: { context_token_threshold: 256000, input: { usd: 1.5 }, output: { usd: 6 } },
+              },
+            },
+          },
+        ],
+      }),
+    );
+    const [m] = await provider().getModels();
+    expect(m.privacy).toBe("anonymized");
+    expect(m.pricing).toEqual({
+      input: 0.5,
+      output: 2,
+      cacheInput: 0.05,
+      cacheWrite: undefined,
+      extended: { input: 1.5, output: 6, cacheInput: undefined, cacheWrite: undefined, contextThreshold: 256000 },
+    });
+  });
+
+  it("asks for usage, disables Venice's injected system prompt, and reads the choice-less usage chunk", async () => {
+    // Venice's real final chunk: empty choices, usage + its own `cost` object.
+    fetchMock.mockResolvedValueOnce(
+      sseResponse([
+        'data: {"choices":[{"delta":{"content":"hi"}}]}',
+        'data: {"choices":[],"usage":{"prompt_tokens":1742,"completion_tokens":8,"total_tokens":1750,"prompt_tokens_details":{"cached_tokens":1584}},"cost":{"usd":0.0001754,"diem":0}}',
+        "data: [DONE]",
+      ]),
+    );
+    const events = [];
+    for await (const e of provider().stream({ messages: [{ role: "user", content: "hi" }] })) events.push(e);
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.stream_options).toEqual({ include_usage: true });
+    expect(body.venice_parameters).toEqual({ include_venice_system_prompt: false });
+    expect(events).toContainEqual({
+      type: "usage",
+      usage: { promptTokens: 1742, completionTokens: 8, totalTokens: 1750, cachedTokens: 1584, costUsd: 0.0001754 },
+    });
   });
 });

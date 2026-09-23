@@ -18,15 +18,15 @@ export interface BannerInfo {
 
 export function renderBanner(cfg: LatticeConfig, info: BannerInfo): string {
   const lines = [
-    `${theme.primary(theme.bold("LATTICE"))}`,
-    `Personal AI Development Agent`,
-    ``,
     `${theme.dim("Model")}       ${cfg.model}`,
     `${theme.dim("Provider")}    Venice AI`,
     `${theme.dim("Workspace")}   ${cfg.workspace}`,
     `${theme.dim("Mode")}        ${cfg.mode.toUpperCase()}`,
     `${theme.dim("Tools")}       ${info.toolCount} built-in${info.mcpServerCount > 0 ? ` + ${info.mcpToolCount} via ${info.mcpServerCount} MCP server${info.mcpServerCount === 1 ? "" : "s"}` : ""}`,
   ];
+  if (cfg.voice.mode !== "off") {
+    lines.push(`${theme.dim("Voice")}       ${cfg.voice.mode}${cfg.voice.mode === "chat" || cfg.voice.mode === "dictate" ? theme.dim("  (Enter on an empty line to talk)") : ""}`);
+  }
   const width = Math.max(...lines.map((l) => stripAnsiLength(l))) + 4;
   const top = "╭" + "─".repeat(width) + "╮";
   const bottom = "╰" + "─".repeat(width) + "╯";
@@ -36,8 +36,9 @@ export function renderBanner(cfg: LatticeConfig, info: BannerInfo): string {
   return [top, body, bottom].join("\n");
 }
 
-export function prompt(): string {
-  return theme.success("lattice") + theme.dim(" › ");
+/** `voiceInput` adds a mic marker so it's always visible that Enter-on-empty records. */
+export function prompt(voiceInput = false): string {
+  return theme.success("lattice") + (voiceInput ? theme.error(" ●") : "") + theme.dim(" › ");
 }
 
 /** Draws a titled box around `lines`, matching the spec §56 tool/edit/browser panel mockups. */
@@ -54,6 +55,8 @@ export function renderBox(kind: string, title: string, lines: string[], color: (
 
 export interface StatusBarInfo {
   approxTokens: number;
+  /** Spend line, pre-rendered (e.g. "$0.0031 turn · $0.08 today · bal $4.20"); omitted when empty. */
+  spend?: string;
   toolCount: number;
   model: string;
   workspace: string;
@@ -62,8 +65,12 @@ export interface StatusBarInfo {
 
 export function renderStatusBar(info: StatusBarInfo): string {
   const tokenStr = info.approxTokens >= 1000 ? `${(info.approxTokens / 1000).toFixed(1)}k` : String(info.approxTokens);
-  return theme.dim(
-    `tokens: ${tokenStr}  │  tools: ${info.toolCount}  │  model: ${info.model}  │  mode: ${info.mode}  │  workspace: ${shortenPath(info.workspace)}`,
+  const spend = info.spend ? `${info.spend}${theme.dim("  │  ")}` : "";
+  return (
+    spend +
+    theme.dim(
+      `tokens: ${tokenStr}  │  tools: ${info.toolCount}  │  model: ${info.model}  │  mode: ${info.mode}  │  workspace: ${shortenPath(info.workspace)}`,
+    )
   );
 }
 

@@ -61,7 +61,7 @@ const RULES: Rule[] = [
   { pattern: new RegExp(`${B}git\\s+(checkout|switch|merge|pull|fetch|rebase|push)\\b`), risk: "caution" },
   { pattern: new RegExp(`${B}npx\\b`), risk: "caution" }, // executes arbitrary published packages
 
-  // --- SAFE: read-only inspection, project-defined build/test scripts ---
+  //  read-only inspection, project-defined build/test scripts -
   { pattern: new RegExp(`${B}(pwd|ls|cat|head|tail|less|more|wc|echo|which|whoami|date|tree|file|stat|env)\\b`), risk: "safe" },
   { pattern: new RegExp(`${B}(rg|grep|ag|fd|find)\\b(?!.*-(delete|exec))`), risk: "safe" },
   { pattern: new RegExp(`${B}git\\s+(status|diff|log|show|blame|branch|remote)\\b`), risk: "safe" },
