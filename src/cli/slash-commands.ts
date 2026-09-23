@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import * as readline from "node:readline/promises";
+import { sanitizeForTerminal } from "../ui/sanitize.js";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import type { LatticeConfig } from "../config/index.js";
@@ -269,8 +270,8 @@ export async function handleSlashCommand(input: string, state: ReplState): Promi
 
     case "/git": {
       const r = await execCaptured(`git ${arg}`, cfg.workspace, 30_000);
-      if (r.stdout) console.log(r.stdout);
-      if (r.stderr) console.log(theme.dim(r.stderr));
+      if (r.stdout) console.log(sanitizeForTerminal(r.stdout));
+      if (r.stderr) console.log(theme.dim(sanitizeForTerminal(r.stderr)));
       return "handled";
     }
 
@@ -364,8 +365,8 @@ function printActionResult(result: actions.ActionResult | null, notDetectedMessa
   }
   const ok = result.exitCode === 0;
   console.log(`${ok ? theme.success("✓") : theme.error("✗")} ${result.command}  (${result.durationMs}ms, exit ${result.exitCode})`);
-  if (result.stdout) console.log(result.stdout.slice(-4000));
-  if (result.stderr) console.log(theme.dim(result.stderr.slice(-2000)));
+  if (result.stdout) console.log(sanitizeForTerminal(result.stdout.slice(-4000)));
+  if (result.stderr) console.log(theme.dim(sanitizeForTerminal(result.stderr.slice(-2000))));
 }
 
 function formatContextTokens(tokens: number | null): string {

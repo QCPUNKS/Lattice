@@ -6,6 +6,7 @@ import chalk from "chalk";
 import type { PermissionMode } from "../config/index.js";
 import type { PermissionAction } from "../tools/registry.js";
 import { type CommandRisk, riskLabel } from "./command-classifier.js";
+import { sanitizeForTerminal } from "../ui/sanitize.js";
 
 export class PermissionDeniedError extends Error {
   constructor(action: string, detail: string) {
@@ -70,7 +71,8 @@ export class PermissionGate {
 
     const severityColor =
       effectiveRisk === "critical" || effectiveRisk === "destructive" ? chalk.red : chalk.yellow;
-    const label = `${chalk.yellow("lattice")} wants to ${chalk.bold(action)} [${severityColor(riskLabel(effectiveRisk))}]: ${detail}`;
+    // The detail is model-chosen (a command, a path): never let it carry control codes that could restyle or spoof this prompt.
+    const label = `${chalk.yellow("lattice")} wants to ${chalk.bold(action)} [${severityColor(riskLabel(effectiveRisk))}]: ${sanitizeForTerminal(detail)}`;
     const answer = (
       await this.rl.question(`${label}\n  Allow? [y]es / [n]o / [a]lways this session: `)
     )

@@ -17,6 +17,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { estimateHistoryTokens } from "../agent/context.js";
 import { ExitCode } from "./exit-codes.js";
+import { sanitizeForTerminal } from "../ui/sanitize.js";
 
 async function readProjectContext(cfg: LatticeConfig): Promise<string | undefined> {
   const p = path.join(cfg.projectConfigDir, "context.md");
@@ -100,14 +101,14 @@ export async function runInteractive(
     currentAbort = new AbortController();
     try {
       await runtime.loop.run(state.session.history, runtime.ctx, {
-        onTextDelta: (delta) => stdout.write(delta),
+        onTextDelta: (delta) => stdout.write(sanitizeForTerminal(delta)),
         onToolCallStart: (name, args) => {
           console.log();
-          console.log(theme.tool(`  → ${name}`) + theme.dim(` ${truncateArgs(args)}`));
+          console.log(theme.tool(`  → ${sanitizeForTerminal(name)}`) + theme.dim(` ${truncateArgs(sanitizeForTerminal(args))}`));
         },
         onToolResult: (name, result, isError) => {
           const color = isError ? theme.error : theme.dim;
-          console.log(color(`  ${isError ? "✗" : "✓"} ${firstLine(result)}`));
+          console.log(color(`  ${isError ? "✗" : "✓"} ${firstLine(sanitizeForTerminal(result))}`));
         },
         onCompaction: (result) => {
           console.log(theme.dim(`  [context compacted: ${result.tokensBefore} → ${result.tokensAfter} approx tokens]`));

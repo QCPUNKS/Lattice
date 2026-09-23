@@ -7,6 +7,7 @@ import { buildSystemPrompt } from "../agent/system-prompt.js";
 import type { ChatMessage } from "../providers/types.js";
 import { ExitCode } from "./exit-codes.js";
 import { PermissionDeniedError } from "../agent/permissions.js";
+import { sanitizeForTerminal } from "../ui/sanitize.js";
 
 /**
  * Non-interactive one-shot run — `lattice exec "..."` / `lattice ask "..."`.
@@ -21,7 +22,7 @@ export async function runNonInteractive(cfg: LatticeConfig, runtime: Runtime, pr
 
   try {
     await runtime.loop.run(history, runtime.ctx, {
-      onTextDelta: (delta) => process.stdout.write(delta),
+      onTextDelta: (delta) => process.stdout.write(sanitizeForTerminal(delta)),
       onToolCallStart: (name, args) => {
         process.stderr.write(`\n→ ${name} ${args.slice(0, 100)}\n`);
       },
