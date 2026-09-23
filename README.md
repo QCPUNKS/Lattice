@@ -3,14 +3,14 @@
 
 # LATTICE
 
-A terminal-native AI software engineering agent, built on Venice AI's OpenAI-compatible API.  More on that later. Runs from any terminal,  grants the model real access to your filesystem, shell, and git, and does the work rather than just describing it. This tool is designed for you and your projects. I I choose Venice.AI as the API for many reasons. (No I Am Not Affiliated with them and or Sponsored) Wouldn't mind to be though. 
+A terminal-native AI software engineering agent, built on Venice AI's OpenAI-compatible API. More on that later. Runs from any terminal, grants the model real access to your filesystem, shell, and git, and does the work rather than just describing it. This tool is designed for you and your projects. I chose Venice.ai as the API for many reasons. (No, I am not affiliated with them or sponsored.) Wouldn't mind being, though.
 
-1. 18$ Subscription grants you front row early access to all the newest frontier models along with every other known efficient models across Text | Image | Video |
-2. Its 100% Private No account needed, E2EE, all chats with all providers are anonimized, and Private. 
-3. Access to a variety of Uncensored Models with E2EE chats
-4. API access to all these models.  
+1. One API for the newest frontier models plus a huge range of efficient open models, across text, image, video, and voice.
+2. Privacy you can see: Venice labels every model **private** (runs on Venice, prompts not stored) or **anonymized** (forwarded to the provider without your identity), and some models offer end-to-end encryption.
+3. Access to a variety of uncensored open models.
+4. Pay-per-use API pricing, published per model, so you only pay for what you use.
 
-If that sounds like something you don't wanna do I have designed this tool for any type of setup of your choice. Just remove the placeholders for your own environment varibles and Keys and its ready to go. The use of Open source models will be available in the next update soon. along with the ability to train your models through a few simple commands. Image Gen and image training will also be inside the next update. If you use a terminal that supports image viewing like kitty for example you will be able to run the model locally or via API and see the generated image right inside your terminal. K lets get into the techincal Shit.
+If that's not your thing, Lattice works with your own setup too: fill in your own environment variables and keys and it's ready to go. Voice, image generation right inside your terminal, and more are coming in [Lattice v3](#lattice-v3-coming-soon). K, let's get into the technical stuff.
 
 ## What Lattice is
 
@@ -29,11 +29,23 @@ If that sounds like something you don't wanna do I have designed this tool for a
 - **Full CLI surface**: interactive REPL, `lattice exec`/`lattice ask` for scripting (with real exit codes), `lattice doctor`, `lattice setup`, `lattice mcp`, `lattice sessions`, `lattice config`, `lattice inspect/status/diff/test/build/run/ps/stop`.
 - **Tests**: unit tests for the provider, permission/risk classifier, filesystem safety, config precedence, and context compaction, plus a fixture-based integration test that proves the full read → edit → verify loop actually works end-to-end.
 
+## Lattice v3 (coming soon)
+
+v1 is the free, open-source engine. **Lattice v3** is the full experience, built on top of it:
+
+- **Talk to it.** Push-to-talk voice with spoken replies. Speak and hear, speak and read, or type and hear, whatever fits the moment or your accessibility needs. Runs **locally on your GPU** (Whisper + Kokoro): free, offline, and your voice never leaves your machine.
+- **Generate images in your terminal.** `/imagine` renders Venice image models inline in Kitty, WezTerm, Ghostty, and Konsole, with privacy-first defaults.
+- **Know what you spend.** The cost of every answer, `/cost` breakdowns by model, your live Venice balance, a model picker sorted by price, and daily/monthly budgets checked before every model call.
+- **Kit10.** An animated pixel-art companion who works alongside you: thinking, reading, typing, and building as the agent does. The terminal animates her, so she costs no CPU.
+- **Hardened for privacy.** Owner-only storage for everything, a documented threat model, and private-by-default models throughout.
+
+To hear when it launches, watch this repository (**Watch → Custom → Releases**).
+
 ## Requirements
 
 - Node.js ≥ 20
 - **Platform**: Linux and macOS are fully supported out of the box. Windows works via WSL2 or Git Bash — native `cmd.exe`/PowerShell isn't supported yet (the installer is a bash script, shell-tool process cleanup relies on POSIX process groups, and the agent's generated commands assume a POSIX shell).
-Plug in your own API key from what ever model/subscription you got going on 
+Plug in your own API key from whatever model/subscription you've got going on.
 
 ## Installation
 
@@ -58,7 +70,7 @@ Run without linking: `npm run dev` (runs `src/index.ts` directly via `tsx`, no b
 cp .env.example .env   # then fill in VENICE_API_KEY
 ```
 
-or `latticee setup` for an interactive wizard that saves to `~/.config/lattice/config.toml`. Full precedence and every setting: `docs/configuration.md`.
+or `lattice setup` for an interactive wizard that saves to `~/.config/lattice/config.toml`. Full precedence and every setting: `docs/configuration.md`.
 
 ## Usage
 
@@ -68,19 +80,18 @@ lattice
 ```
 
 ```text
-Example of how things will look
-╭────────────────────────────────────╮_
-│ Lattice                                                                         │_
-│ Personal AI Development Agent                            
-│                                                                                       
-│ Model       kimi-k2-7-code                                  
-│ Provider    Digiworld                                
-│ Workspace   ~/Projects/my-app                              _
-│ Mode        NORMAL                                                  │      
-│ Tools       26 built-in                                                  │ 
-╰────────────────────────────────────
+╭──────────────────────────────────────╮
+│ LATTICE                              │
+│ Personal AI Development Agent        │
+│                                      │
+│ Model       kimi-k2-7-code           │
+│ Provider    Venice AI                │
+│ Workspace   ~/Projects/my-app        │
+│ Mode        NORMAL                   │
+│ Tools       26 built-in              │
+╰──────────────────────────────────────╯
 
-Lattice› Fix the authentication bug and run the tests. then after can you add make these changes to this config file for me?
+lattice › Fix the authentication bug and run the tests, then update the config file.
 ```
 
 Scripting / CI:
@@ -136,7 +147,10 @@ Nothing is merged automatically — the scorecard informs the decision, the diff
 
 ## Security
 
-- Filesystem tools cannot read or write outside the workspace directory — every path is resolved and checked before use.
+- Filesystem tools cannot read or write outside the workspace directory. Every path is resolved (following symlinks) and checked before use, so a symlink committed to a repo can't be used to escape.
+- A project's `.lattice/config.toml` can't redirect where your API key is sent, supply an API key, or loosen your permission mode. Those come only from your environment and global config, and the API base URL must be HTTPS.
+- Everything Lattice prints that it doesn't control (model replies, tool output, command output) has terminal control codes stripped, so a file the agent reads can't hijack your terminal or clipboard.
+- Your config (which can hold the API key), sessions, and the audit log are stored owner-only.
 - `.env`, `*.pem`, `*.key`, SSH private keys, `credentials.*`, `secrets.*` require an explicit confirmation before Lattice reads or sends their contents anywhere.
 - Destructive/critical shell commands (`rm`, `git reset --hard`, `sudo`, `chmod -R`, `dd`, ...) always require confirmation, in every autonomy mode.
 - API keys are never logged in full (`redactKey` shows only first/last 4 chars) and never appear in the audit trail.
@@ -146,6 +160,7 @@ Full policy table: `docs/permissions.md`.
 
 ## Documentation
 
+- `CHANGELOG.md`: what changed in each release
 - `docs/architecture.md` — module map and data flow
 - `docs/configuration.md` — every setting and its precedence
 - `docs/tools.md` — native tool reference
@@ -171,4 +186,4 @@ Copyright (c) 2026 Jevante Boxley / QCPUNKS
 
 Licensed under the [Apache License 2.0](LICENSE). You're free to use, modify, distribute, and build on this software — commercially or otherwise — as long as you keep the copyright notice and license text with it. See the [LICENSE](LICENSE) file for the full terms.
 
-Looking forward to feedback and suggestions. 
+Looking forward to feedback and suggestions.
