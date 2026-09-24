@@ -3,6 +3,31 @@
 
 # Changelog
 
+## v1.0.1
+
+**Security release: everyone on v1.0.0 or earlier should upgrade.**
+
+- **MCP tools ran without permission.** Tools from connected MCP servers
+  were executed without going through the permission gate, in every mode. A
+  server exposing a code-execution tool could run whatever code the model
+  wrote without asking you. Every MCP call now goes through the gate:
+  - tools that execute code (by name or because the server marks them
+    destructive) ask **every time, in every mode**, and the prompt shows the
+    code or arguments;
+  - tools the server marks read-only run without asking;
+  - everything else asks in `safe`/`normal` and runs in `auto`.
+
+  "Always allow this session" for MCP calls is kept separate from shell
+  commands.
+- **New: per-tool `toolRisk` overrides** in `mcp.json` (for example, to
+  stop being asked about tools that only read). Your global config can set
+  any tier; a project's `.lattice/mcp.json` can only raise a tool's risk.
+
+Upgrading changes one behavior: MCP tools that used to run silently now ask
+in `safe` and `normal` mode (or are denied in non-interactive `lattice exec`
+unless you use `--mode auto`). See `docs/mcp.md` to mark read-only tools
+`safe`.
+
 ## v1.0.0
 
 The first stable release. **This is a security release: everyone on v0.1.0

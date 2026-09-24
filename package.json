@@ -2,7 +2,7 @@
   "copyright": "Copyright (c) 2026 Jevante Boxley / QCPUNKS",
   "license": "Apache-2.0",
   "name": "lattice-agent",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "LATTICE - Personal terminal AI development agent (Venice AI provider)",
   "type": "module",
   "bin": {

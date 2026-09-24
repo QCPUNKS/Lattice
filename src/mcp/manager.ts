@@ -8,6 +8,8 @@ import type { ToolDefinition } from "../providers/types.js";
 import type { ToolRegistry, ToolContext } from "../tools/registry.js";
 import type { ResolvedMcpServer } from "./config.js";
 import { LATTICE_VERSION } from "../version.js";
+import type { CommandRisk } from "../agent/command-classifier.js";
+import { mcpToolRisk, applyRiskOverride, describeMcpCall, type ToolHints } from "./risk.js";
 
 const MAX_MCP_OUTPUT_CHARS = 20_000;
 
@@ -86,7 +88,12 @@ export class McpManager {
             },
           };
           try {
-            registry.register(definition, this.makeHandler(entry.name, tool.name, client));
+            const risk = applyRiskOverride(
+              mcpToolRisk(tool.name, tool.annotations as ToolHints | undefined),
+              entry.config.toolRisk?.[tool.name],
+              entry.scope,
+            );
+            registry.register(definition, this.makeHandler(entry.name, tool.name, client, risk));
             toolNames.push(tool.name);
           } catch (err) {
             // A single colliding/malformed tool shouldn't take the whole server down.
@@ -125,8 +132,11 @@ export class McpManager {
     return client;
   }
 
-  private makeHandler(server: string, tool: string, client: Client) {
-    return async (args: any, _ctx: ToolContext): Promise<string> => {
+  private makeHandler(server: string, tool: string, client: Client, risk: CommandRisk) {
+    return async (args: any, ctx: ToolContext): Promise<string> => {
+      // Every MCP call goes through the permission gate like native tools do;
+      // code-execution tools are "destructive" and confirmed every time.
+      await ctx.requirePermission("mcp", describeMcpCall(displayName(server, tool), args), risk);
       const result = await client.callTool({ name: tool, arguments: args ?? {} });
       const parts: string[] = [];
       for (const item of (result.content as any[]) ?? []) {

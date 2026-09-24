@@ -52,3 +52,38 @@ lattice mcp test     # connect to every configured server and report status
 ```
 
 Inside the REPL: `/mcp` shows live connection status for the current session.
+
+## Permissions for MCP tools
+
+Every MCP tool call goes through the same permission gate as Lattice's own
+tools:
+
+| Tool | Risk | Behavior |
+|---|---|---|
+| Name looks like code execution (`execute`, `eval`, `run`, `shell`, `code`, `script`, `python`, `bash`, `command`) or the server marks it destructive | destructive | **Asks every time, in every mode**, and the prompt shows the code or arguments |
+| Server marks it read-only | safe | Runs without asking |
+| Everything else | caution | Asks in `safe`/`normal`, runs in `auto` |
+
+A code-execution name wins over any hint: a server claiming its eval tool is
+read-only isn't believed. "Always allow this session" for MCP calls is kept
+separate from shell commands.
+
+Override the tier per tool with `toolRisk`, for example to stop being asked
+about tools that only read:
+
+```json
+{
+  "mcpServers": {
+    "blender": {
+      "command": "uvx",
+      "args": ["mcp-for-blender@2.0.3"],
+      "env": { "DISABLE_TELEMETRY": "true" },
+      "toolRisk": { "get_scene_info": "safe", "get_object_info": "safe" }
+    }
+  }
+}
+```
+
+Overrides in your global `~/.config/lattice/mcp.json` can set any tier. In a
+project's `.lattice/mcp.json` they can only **raise** a tool's risk, so a
+cloned repo can't mark a code-execution tool safe.

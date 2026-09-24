@@ -151,6 +151,7 @@ Nothing is merged automatically — the scorecard informs the decision, the diff
 - A project's `.lattice/config.toml` can't redirect where your API key is sent, supply an API key, or loosen your permission mode. Those come only from your environment and global config, and the API base URL must be HTTPS.
 - Everything Lattice prints that it doesn't control (model replies, tool output, command output) has terminal control codes stripped, so a file the agent reads can't hijack your terminal or clipboard.
 - Your config (which can hold the API key), sessions, and the audit log are stored owner-only.
+- MCP tools go through the same permission gate: tools that execute code ask every time, in every mode, and show you the code first. See `docs/mcp.md`.
 - `.env`, `*.pem`, `*.key`, SSH private keys, `credentials.*`, `secrets.*` require an explicit confirmation before Lattice reads or sends their contents anywhere.
 - Destructive/critical shell commands (`rm`, `git reset --hard`, `sudo`, `chmod -R`, `dd`, ...) always require confirmation, in every autonomy mode.
 - API keys are never logged in full (`redactKey` shows only first/last 4 chars) and never appear in the audit trail.
