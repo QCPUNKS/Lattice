@@ -39,6 +39,9 @@ manipulate the model.
   `notes -> ~`) is refused for reads, writes, and new files beneath it.
 - **Project MCP servers:** never started without an explicit yes; never
   started at all non-interactively.
+- **MCP tool calls** go through the permission gate. Tools that run code
+  (e.g. Blender's `execute_blender_code`) ask every time in every mode and
+  show the code; a project config can't lower any tool's risk.
 - **Prompt injection** (instructions hidden in files, web pages, or tool
   output): *mitigated, not prevented.* No agent can reliably tell injected
   instructions from real ones. The defense is the permission gate: in

@@ -9,6 +9,12 @@ export interface McpServerConfig {
   command?: string;
   args?: string[];
   env?: Record<string, string>;
+  /**
+   * Per-tool risk overrides, e.g. { "get_scene_info": "safe" } for tools that
+   * only read. In a project's .lattice/mcp.json these can only raise a tool's
+   * risk, never lower it.
+   */
+  toolRisk?: Record<string, string>;
   /** streamable-HTTP server: endpoint URL. */
   url?: string;
   /** Defaults to true. Set false to keep a configured server around without loading it. */

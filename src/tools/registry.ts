@@ -4,7 +4,7 @@
 import type { ToolDefinition } from "../providers/types.js";
 import type { CommandRisk } from "../agent/command-classifier.js";
 
-export type PermissionAction = "write" | "delete" | "exec" | "network" | "secret_read";
+export type PermissionAction = "write" | "delete" | "exec" | "network" | "secret_read" | "mcp";
 
 export interface ToolContext {
   workspace: string;

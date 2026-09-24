@@ -21,6 +21,7 @@ const DEFAULT_RISK: Record<Exclude<PermissionAction, "exec">, CommandRisk> = {
   delete: "destructive",
   network: "caution",
   secret_read: "destructive", // always confirm — see spec §52 on Venice privacy
+  mcp: "caution", // MCP calls pass their own risk (see mcp/risk.ts); this is only the fallback
 };
 
 /**
