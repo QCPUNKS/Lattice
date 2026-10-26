@@ -42,7 +42,9 @@ export function prompt(voiceInput = false): string {
 }
 
 /** Draws a titled box around `lines`, matching the spec §56 tool/edit/browser panel mockups. */
-export function renderBox(kind: string, title: string, lines: string[], color: (s: string) => string = theme.tool): string {
+export function renderBox(kind: string, title: string, entries: string[], color: (s: string) => string = theme.tool): string {
+  // An entry may span several lines; each needs its own borders.
+  const lines = entries.flatMap((entry) => entry.split("\n"));
   const header = `─ ${kind.toUpperCase()} ─ ${title} `;
   const contentWidth = Math.max(header.length, ...lines.map((l) => stripAnsiLength(l) + 2), 40);
   const top = color(`┌${header}${"─".repeat(Math.max(0, contentWidth - header.length))}┐`);

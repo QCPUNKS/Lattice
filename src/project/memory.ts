@@ -2,8 +2,26 @@
 // QCPUNKS SECTOR
 
 import { promises as fs } from "node:fs";
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import path from "node:path";
+
+const execFileAsync = promisify(execFile);
+const LATTICE_DIR_PATTERNS = new Set([".lattice", ".lattice/", "/.lattice", "/.lattice/"]);
+const LATTICE_IGNORE_BLOCK = "\n# Lattice project memory (local only)\n.lattice/\n";
+
+async function appendIgnoreEntry(ignoreFilePath: string): Promise<boolean> {
+  let existing = "";
+  if (existsSync(ignoreFilePath)) {
+    existing = await fs.readFile(ignoreFilePath, "utf-8");
+    if (existing.split("\n").some((line) => LATTICE_DIR_PATTERNS.has(line.trim()))) return false;
+  }
+  const separator = existing.length > 0 && !existing.endsWith("\n") ? "\n" : "";
+  await fs.mkdir(path.dirname(ignoreFilePath), { recursive: true });
+  await fs.writeFile(ignoreFilePath, `${existing}${separator}${LATTICE_IGNORE_BLOCK}`, "utf-8");
+  return true;
+}
 
 /**
  * Scaffolds the project-local memory directory (spec §30):
@@ -52,25 +70,21 @@ export async function ensureProjectMemory(projectConfigDir: string): Promise<{ c
   return { created };
 }
 
-/** Appends ".lattice/" to the project .gitignore if this is a git repo and it isn't already ignored. */
+/**
+ * Keeps ".lattice/" out of git if this is a git repo and it isn't already ignored.
+ * A main checkout gets it in .gitignore. A linked worktree (where .git is a file,
+ * e.g. an arena participant) gets it in the repo's untracked info/exclude instead,
+ * so Lattice's own bookkeeping never shows up as a change in that worktree's diff.
+ */
 export async function ensureLatticeDirGitignored(workspace: string): Promise<boolean> {
-  const gitDir = path.join(workspace, ".git");
-  if (!existsSync(gitDir)) return false;
+  const gitEntry = path.join(workspace, ".git");
+  if (!existsSync(gitEntry)) return false;
 
-  const gitignorePath = path.join(workspace, ".gitignore");
-  let existing = "";
-  if (existsSync(gitignorePath)) {
-    existing = await fs.readFile(gitignorePath, "utf-8");
-    const alreadyIgnored = existing
-      .split("\n")
-      .map((l) => l.trim())
-      .some((l) => l === ".lattice" || l === ".lattice/" || l === "/.lattice" || l === "/.lattice/");
-    if (alreadyIgnored) return false;
+  if (statSync(gitEntry).isDirectory()) {
+    return appendIgnoreEntry(path.join(workspace, ".gitignore"));
   }
-
-  const separator = existing.length > 0 && !existing.endsWith("\n") ? "\n" : "";
-  await fs.writeFile(gitignorePath, `${existing}${separator}\n# Lattice project memory (local only)\n.lattice/\n`, "utf-8");
-  return true;
+  const { stdout } = await execFileAsync("git", ["rev-parse", "--git-path", "info/exclude"], { cwd: workspace });
+  return appendIgnoreEntry(path.resolve(workspace, stdout.trim()));
 }
 
 export interface AgentState {

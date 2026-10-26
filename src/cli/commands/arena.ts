@@ -16,17 +16,15 @@ import { listArenaRuns, findLatestOpenRun, type ArenaRun } from "../../arena/sto
 import { theme } from "../../ui/theme.js";
 import { renderBox } from "../../ui/terminal.js";
 import { colorizeDiff } from "../../ui/diff.js";
+import { formatOutcome } from "../../ui/arena-live.js";
 
 export function renderScorecard(run: ArenaRun): string {
-  const lines = run.results.map((r) => {
-    const testCol = r.testsPassed === null ? "—" : r.testsPassed ? theme.success("pass") : theme.error("fail");
-    const statusCol = r.status === "ok" ? theme.success("ok") : theme.error(`error: ${r.error ?? "unknown"}`);
-    return (
-      `${theme.bold(r.label)}  ${statusCol}\n` +
-      `  tests:${testCol}  files:${r.filesChanged}  +${r.insertions}/-${r.deletions}  ` +
-      `tokens:${r.tokensUsed}  time:${(r.durationMs / 1000).toFixed(1)}s`
-    );
-  });
+  const lines = run.results.map(
+    (r) =>
+      `${theme.bold(r.label)}  ${formatOutcome(r)}\n` +
+      `  files:${r.filesChanged}  +${r.insertions}/-${r.deletions}  ` +
+      `tokens:${r.tokensUsed}  time:${(r.durationMs / 1000).toFixed(1)}s`,
+  );
   return renderBox("arena", run.prompt.slice(0, 60), lines, theme.primary);
 }
 
@@ -176,10 +174,7 @@ export async function runArenaCommand(
       onProgress: (label, event) => {
         if (event.type === "start") console.log(theme.dim(`→ ${label} starting...`));
         if (event.type === "error") console.log(theme.error(`✗ ${label}: ${event.message}`));
-        if (event.type === "done") {
-          const ok = event.result.status === "ok";
-          console.log((ok ? theme.success : theme.error)(`${ok ? "✓" : "✗"} ${label} finished`));
-        }
+        if (event.type === "done") console.log(`${label}  ${formatOutcome(event.result)}`);
       },
     });
 

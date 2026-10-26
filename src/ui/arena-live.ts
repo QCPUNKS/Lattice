@@ -3,9 +3,20 @@
 
 import { theme } from "./theme.js";
 import type { ArenaProgressEvent } from "../arena/orchestrator.js";
+import type { ArenaParticipantResult } from "../arena/store.js";
 
 function truncate(s: string, max: number): string {
   return s.length > max ? s.slice(0, max - 1) + "…" : s;
+}
+
+/**
+ * What a participant achieved, as one colored label. "Finished without
+ * crashing" is not success: when there's a test command, the tests decide.
+ */
+export function formatOutcome(result: ArenaParticipantResult): string {
+  if (result.status === "error") return theme.error(`✗ error: ${result.error ?? "unknown"}`);
+  if (result.testsPassed === null) return theme.dim("done");
+  return result.testsPassed ? theme.success("✓ passed") : theme.error("✗ tests failed");
 }
 
 /** Turns one orchestrator progress event into a single-line status for `label`. */
@@ -24,10 +35,7 @@ export function formatArenaStatus(label: string, event: ArenaProgressEvent): str
       }`;
     case "done": {
       const r = event.result;
-      const ok = r.status === "ok";
-      const testStr = r.testsPassed === null ? "" : `  tests:${r.testsPassed ? theme.success("pass") : theme.error("fail")}`;
-      const icon = ok ? theme.success("✓") : theme.error("✗");
-      return `${icon} ${name}  files:${r.filesChanged} +${r.insertions}/-${r.deletions}  tokens:${r.tokensUsed}  ${(r.durationMs / 1000).toFixed(1)}s${testStr}`;
+      return `${name}  ${formatOutcome(r)}  files:${r.filesChanged} +${r.insertions}/-${r.deletions}  tokens:${r.tokensUsed}  ${(r.durationMs / 1000).toFixed(1)}s`;
     }
     case "error":
       return `${theme.error("✗")} ${name}  ${event.message}`;
