@@ -76,7 +76,8 @@ export async function runDetectedCommand(
   return { command, exitCode: r.exitCode, stdout: r.stdout, stderr: r.stderr, durationMs: r.durationMs };
 }
 
-async function detectDevCommand(workspace: string): Promise<string | null> {
+/** The project's dev script, else its start script, run through the project's package manager. */
+export async function detectDevCommand(workspace: string): Promise<string | null> {
   const scripts = await readPackageScripts(workspace);
   if (!scripts) return null;
   const pm = await packageManager(workspace);
@@ -91,7 +92,7 @@ export interface RunResult {
   reused: boolean;
 }
 
-/** Starts (or reuses) the project's dev/start script as a tracked background process, for `/run` and `lattice run`. */
+/** Starts (or reuses) the project's dev/start script as a tracked background process, for `/run`. */
 export async function runProject(workspace: string): Promise<RunResult | null> {
   const command = await detectDevCommand(workspace);
   if (!command) return null;

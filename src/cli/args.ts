@@ -14,7 +14,8 @@ export interface ParsedArgs {
   models?: string;
   tests?: string;
   debug: boolean;
-  yes: boolean; // skip confirmations where a flag-based override makes sense (still respects destructive/critical gating)
+  help: boolean;
+  version: boolean;
 }
 
 const VALUE_FLAGS: Record<string, keyof ParsedArgs> = {
@@ -28,7 +29,7 @@ const VALUE_FLAGS: Record<string, keyof ParsedArgs> = {
 };
 
 export function parseArgs(argv: string[]): ParsedArgs {
-  const result: ParsedArgs = { positional: [], debug: false, yes: false };
+  const result: ParsedArgs = { positional: [], debug: false, help: false, version: false };
   let i = 0;
 
   while (i < argv.length) {
@@ -39,8 +40,13 @@ export function parseArgs(argv: string[]): ParsedArgs {
       i++;
       continue;
     }
-    if (token === "--yes" || token === "-y") {
-      result.yes = true;
+    if (token === "--help" || token === "-h") {
+      result.help = true;
+      i++;
+      continue;
+    }
+    if (token === "--version" || token === "-v") {
+      result.version = true;
       i++;
       continue;
     }

@@ -9,7 +9,8 @@ import path from "node:path";
 import chalk from "chalk";
 
 import { loadConfig } from "./config/index.js";
-import { parseArgs } from "./cli/args.js";
+import { parseArgs, type ParsedArgs } from "./cli/args.js";
+import { CLI_HELP, readVersion } from "./cli/help.js";
 import { ExitCode } from "./cli/exit-codes.js";
 import { buildRuntime } from "./cli/runtime.js";
 import { runInteractive } from "./cli/repl.js";
@@ -29,8 +30,6 @@ import {
   runTestCommand,
   runBuildCommand,
   runRunCommand,
-  runPsCommand,
-  runStopCommand,
   runAuditCommand,
 } from "./cli/commands/project.js";
 
@@ -48,16 +47,30 @@ const KNOWN_COMMANDS = new Set([
   "test",
   "build",
   "run",
-  "ps",
-  "stop",
   "audit",
   "ask",
   "exec",
   "arena",
+  "help",
 ]);
 
 async function main(): Promise<number> {
-  const parsed = parseArgs(process.argv.slice(2));
+  let parsed: ParsedArgs;
+  try {
+    parsed = parseArgs(process.argv.slice(2));
+  } catch (err) {
+    console.error(chalk.red((err as Error).message));
+    console.error(chalk.dim("Run 'lattice --help' for usage."));
+    return ExitCode.INVALID_USAGE;
+  }
+  if (parsed.help || parsed.command === "help") {
+    console.log(CLI_HELP);
+    return ExitCode.SUCCESS;
+  }
+  if (parsed.version) {
+    console.log(readVersion());
+    return ExitCode.SUCCESS;
+  }
 
   // `lattice /path/to/project` — a bare path where a command name would go means "launch here."
   let workspaceOverride = parsed.workspace;
@@ -69,7 +82,7 @@ async function main(): Promise<number> {
       command = undefined;
     } else {
       console.error(chalk.red(`Unknown command or path: ${command}`));
-      console.error(chalk.dim("Run without arguments for interactive mode, or see the README for available commands."));
+      console.error(chalk.dim("Run 'lattice --help' for available commands."));
       return ExitCode.INVALID_USAGE;
     }
   }
@@ -102,10 +115,6 @@ async function main(): Promise<number> {
       return runBuildCommand(cfg);
     case "run":
       return runRunCommand(cfg);
-    case "ps":
-      return runPsCommand();
-    case "stop":
-      return runStopCommand(parsed.positional[0]);
     case "audit":
       return runAuditCommand(cfg, parsed.positional[0]);
     case "arena":

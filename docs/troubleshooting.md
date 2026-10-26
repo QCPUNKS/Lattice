@@ -23,7 +23,7 @@ The command was classified `caution`/`destructive`/`critical` and the active mod
 
 ## Orphaned background processes
 
-`start_process`/`/run` track PIDs and kill the whole process group (not just the shell) on `stop_process`, `/stop`, session exit, or `SIGTERM`. If you still find a stray process after a hard crash (`kill -9` on Lattice itself), check `lattice ps` first, then your OS process list.
+`start_process`/`/run` track PIDs and kill the whole process group (not just the shell) on `stop_process`, `/stop`, session exit, or `SIGTERM`. If you still find a stray process after a hard crash (`kill -9` on Lattice itself), check your OS process list (`ps -ef | grep <command>`). `/ps` only knows processes started by the running Lattice.
 
 ## Context growing very large / responses feel slow
 

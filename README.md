@@ -18,7 +18,7 @@ A terminal-native AI software engineering agent, built on Venice AI's OpenAI-com
 - **Project memory**: `.lattice/` scaffolding (context notes, architecture/decisions/conventions files, agent state) that survives between runs and gets fed back into the system prompt; auto-gitignored.
 - **Undo/diff**: every file touched in a turn is snapshotted before the first write, independent of git, so `/diff` and `/undo` work even in an uncommitted repo.
 - **Audit log**: every permission decision and command execution is written as structured JSON to a local audit trail (`lattice audit`).
-- **Full CLI surface**: interactive REPL, `lattice exec`/`lattice ask` for scripting (with real exit codes), `lattice doctor`, `lattice setup`, `lattice mcp`, `lattice sessions`, `lattice config`, `lattice inspect/status/diff/test/build/run/ps/stop`.
+- **Full CLI surface**: interactive REPL, `lattice exec`/`lattice ask` for scripting (with real exit codes), `lattice doctor`, `lattice setup`, `lattice mcp`, `lattice sessions`, `lattice config`, `lattice inspect/status/diff/test/build/run`, `lattice --help`.
 - **Tests**: unit tests for the provider, permission/risk classifier, filesystem safety, config precedence, and context compaction, plus a fixture-based integration test that proves the full read → edit → verify loop actually works end-to-end.
 
 ## Requirements
@@ -158,6 +158,7 @@ Full policy table: `docs/permissions.md`. Threat model and known gaps: `SECURITY
 
 ## Documentation
 
+- **`docs/user-guide.md` — start here: every command explained in plain language, with examples**
 - `docs/architecture.md` — module map and data flow
 - `docs/configuration.md` — every setting and its precedence
 - `docs/tools.md` — native tool reference

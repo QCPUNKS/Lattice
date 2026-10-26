@@ -2,6 +2,7 @@
 // QCPUNKS SECTOR
 
 import { spawn, ChildProcess } from "node:child_process";
+import { constants as osConstants } from "node:os";
 import path from "node:path";
 import type { ToolDefinition } from "../providers/types.js";
 import type { ToolContext, ToolHandler } from "./registry.js";
@@ -38,6 +39,36 @@ export function cancelActiveForegroundCommand(): boolean {
   if (!activeForegroundChild) return false;
   killProcessTree(activeForegroundChild, "SIGTERM");
   return true;
+}
+
+/**
+ * Runs a command attached to this terminal and resolves with its exit status,
+ * shell-style (128 + signal number when a signal ended it). The child shares
+ * the terminal's process group, so Ctrl+C reaches it directly; Lattice ignores
+ * that Ctrl+C and waits, instead of exiting first and orphaning the child.
+ */
+export function runAttached(command: string, cwd: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, { cwd, shell: true, env: process.env, stdio: "inherit" });
+    const ignoreInterrupt = () => {};
+    const forwardSignal = (signal: NodeJS.Signals) => child.kill(signal);
+    process.on("SIGINT", ignoreInterrupt);
+    process.on("SIGTERM", forwardSignal);
+    process.on("SIGHUP", forwardSignal);
+    const detach = () => {
+      process.off("SIGINT", ignoreInterrupt);
+      process.off("SIGTERM", forwardSignal);
+      process.off("SIGHUP", forwardSignal);
+    };
+    child.once("error", (err) => {
+      detach();
+      reject(err);
+    });
+    child.once("close", (code, signal) => {
+      detach();
+      resolve(code ?? 128 + (signal ? osConstants.signals[signal] : 0));
+    });
+  });
 }
 
 export const runCommandDef: ToolDefinition = {
@@ -274,7 +305,7 @@ export const getProcessStatusHandler: ToolHandler = async (args) => {
   ].join("\n");
 };
 
-// --- Process registry introspection, used by `lattice ps` / `/ps` / `/stop` and shutdown cleanup ---
+// --- Process registry introspection, used by `/ps` / `/stop` and shutdown cleanup ---
 
 export interface ProcessSummary {
   id: string;

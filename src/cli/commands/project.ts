@@ -7,6 +7,7 @@ import * as actions from "../actions.js";
 import { simpleGit } from "simple-git";
 import { readAuditLog } from "../../audit/log.js";
 import { ExitCode } from "../exit-codes.js";
+import { runAttached } from "../../tools/shell.js";
 import { detectProjectTypeHandler, inspectProjectHandler } from "../../tools/project.js";
 import type { ToolContext } from "../../tools/registry.js";
 
@@ -75,29 +76,24 @@ export async function runBuildCommand(cfg: LatticeConfig): Promise<number> {
   return ok ? ExitCode.SUCCESS : ExitCode.VERIFICATION_FAILURE;
 }
 
+/**
+ * Runs the dev/start script in the foreground, like `npm run dev`. Background
+ * processes only live as long as the Lattice that started them, so a one-shot
+ * CLI can't hand one off; `/run` inside a chat is the background version.
+ */
 export async function runRunCommand(cfg: LatticeConfig): Promise<number> {
-  const result = await actions.runProject(cfg.workspace);
-  if (!result) {
+  const command = await actions.detectDevCommand(cfg.workspace);
+  if (!command) {
     console.log(theme.dim("No dev/start script detected for this project."));
     return ExitCode.GENERAL_FAILURE;
   }
-  console.log(theme.success(`${result.reused ? "Reusing" : "Started"} ${result.processId}: ${result.command}`));
-  console.log(theme.dim("Use `lattice ps` to check on it and `lattice stop <id>` to stop it."));
-  return ExitCode.SUCCESS;
-}
-
-export function runPsCommand(): number {
-  console.log(actions.formatProcessList());
-  return ExitCode.SUCCESS;
-}
-
-export function runStopCommand(id: string | undefined): number {
-  if (!id) {
-    console.error(theme.error("Usage: lattice stop <process-id>"));
-    return ExitCode.INVALID_USAGE;
+  console.log(theme.dim(`$ ${command}  (Ctrl+C to stop)`));
+  try {
+    return await runAttached(command, cfg.workspace);
+  } catch (err) {
+    console.error(theme.error(`Could not start ${command}: ${(err as Error).message}`));
+    return ExitCode.GENERAL_FAILURE;
   }
-  console.log(actions.stopProcessById(id));
-  return ExitCode.SUCCESS;
 }
 
 export async function runAuditCommand(cfg: LatticeConfig, limitArg: string | undefined): Promise<number> {
