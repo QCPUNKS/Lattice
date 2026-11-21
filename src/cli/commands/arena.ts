@@ -20,13 +20,40 @@ import { formatOutcome } from "../../ui/arena-live.js";
 
 export function renderScorecard(run: ArenaRun): string {
   const lines = run.results.map(
-    (r) =>
-      `${theme.bold(r.label)}  ${formatOutcome(r)}\n` +
+    (r, i) =>
+      `${theme.dim(`${i + 1}.`)} ${theme.bold(r.label)}  ${formatOutcome(r)}\n` +
       `  files:${r.filesChanged}  +${r.insertions}/-${r.deletions}  ` +
       `tokens:${r.tokensUsed}  time:${(r.durationMs / 1000).toFixed(1)}s`,
   );
   return renderBox("arena", run.prompt.slice(0, 60), lines, theme.primary);
 }
+
+/** What to do after a race, by scorecard number. `prefix` is "/arena" in the REPL, "lattice arena" in a shell. */
+export function arenaNextSteps(prefix: string): string {
+  return `Next: ${prefix} diff 1  (see the code)  ·  ${prefix} pick 1  (merge it)  ·  ${prefix} clean  (discard all)`;
+}
+
+export type ModelSelection = { ok: true; models: string[] } | { ok: false; error: string };
+
+/**
+ * Reads a model choice typed as numbers from a listed catalog ("1 3 5", "1,3,5")
+ * or as model ids, mixed freely. Duplicates are dropped; at least two are required.
+ */
+export function parseModelSelection(input: string, catalog: readonly string[]): ModelSelection {
+  const picked: string[] = [];
+  for (const token of input.split(/[\s,]+/).filter(Boolean)) {
+    let id = token;
+    if (/^\d+$/.test(token)) {
+      const fromList = catalog[Number(token) - 1];
+      if (!fromList) return { ok: false, error: `There is no model number ${token}. Pick numbers from 1 to ${catalog.length}.` };
+      id = fromList;
+    }
+    if (!picked.includes(id)) picked.push(id);
+  }
+  if (picked.length < 2) return { ok: false, error: "Pick at least 2 models to race, e.g. 1 3" };
+  return { ok: true, models: picked };
+}
+
 
 export interface ParsedArenaArgs {
   positional: string[];
@@ -89,7 +116,7 @@ export async function runArenaCommand(
           console.log(theme.bold(`\n${s.label}`));
           console.log(theme.dim(s.stat));
         }
-        console.log(theme.dim(`\nRun 'lattice arena diff <label>' for the full diff of one participant.`));
+        console.log(theme.dim(`\nRun 'lattice arena diff <number>' for the full diff of one participant.`));
       } else {
         console.log(colorizeDiff(await getArenaParticipantDiff(run, label)));
       }
@@ -103,7 +130,7 @@ export async function runArenaCommand(
   if (isSubcommand && sub === "pick") {
     const label = rest[0];
     if (!label) {
-      console.error(chalk.red("Usage: lattice arena pick <label>"));
+      console.error(chalk.red("Usage: lattice arena pick <number or label>"));
       return ExitCode.INVALID_USAGE;
     }
     const run = await findLatestOpenRun(cfg.dataDir, cfg.workspace);
@@ -112,8 +139,8 @@ export async function runArenaCommand(
       return ExitCode.GENERAL_FAILURE;
     }
     try {
-      await pickArenaWinner(cfg, run, label);
-      console.log(theme.success(`Merged "${label}" into the current branch. Other worktrees cleaned up.`));
+      const resolved = await pickArenaWinner(cfg, run, label);
+      console.log(theme.success(`Merged "${resolved.winner}" into the current branch. Other worktrees cleaned up.`));
       return ExitCode.SUCCESS;
     } catch (err) {
       console.error(chalk.red((err as Error).message));
@@ -179,12 +206,7 @@ export async function runArenaCommand(
     });
 
     console.log("\n" + renderScorecard(run));
-    console.log(
-      theme.dim(
-        `\nRun 'lattice arena diff [label]' to see the actual code before picking, ` +
-          `'lattice arena pick <label>' to merge a winner into your branch, or 'lattice arena clean' to discard everything.`,
-      ),
-    );
+    console.log(theme.dim(`\n${arenaNextSteps("lattice arena")}`));
     return ExitCode.SUCCESS;
   } catch (err) {
     console.error(chalk.red((err as Error).message));

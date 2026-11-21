@@ -28,6 +28,20 @@ The first `/imagine` asks two things, then remembers them in
 
 Re-run any time with `/image setup`.
 
+## `/imagine` on its own
+
+Nothing to remember: it asks what to paint, then the shape.
+
+```text
+lattice › /imagine
+What should I paint? (Enter to cancel) a glass cube floating over a neon grid
+Shape: 1 square  2 wide  3 tall  (Enter = usual) 2
+```
+
+"Wide" and "tall" use 16:9 and 9:16 when the model supports them, and
+otherwise the widest or tallest ratio the model offers. `/imagine help` lists
+every option below.
+
 ## `/imagine <prompt> [options]`
 
 | Option | Meaning |

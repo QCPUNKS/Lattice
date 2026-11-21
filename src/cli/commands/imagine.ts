@@ -7,10 +7,11 @@ import { spawn } from "node:child_process";
 import { theme } from "../../ui/theme.js";
 import { expandHome } from "../../config/index.js";
 import { startActivity } from "../../ui/activity.js";
-import type { ImageService, ImagineOptions } from "../../media/image-service.js";
+import type { ImageService, ImageShape, ImagineOptions } from "../../media/image-service.js";
 import type { ImageModelInfo } from "../../media/image-catalog.js";
 
-export const IMAGINE_USAGE = `Usage: /imagine <prompt> [options]
+export const IMAGINE_USAGE = `Usage: /imagine                 asks what to paint and what shape
+       /imagine <prompt> [options]
   --model, -m <id>        image model (default from /image model)
   --aspect, -a <W:H>      aspect ratio, e.g. 16:9, 9:16, 1:1
   --res <1K|2K|4K>        resolution tier (models that support it)
@@ -97,21 +98,65 @@ export function parseImagineArgs(input: string): ParsedImagine {
   return { ok: true, options };
 }
 
+const SHAPE_CHOICES: Record<string, ImageShape> = {
+  "1": "square", square: "square", s: "square",
+  "2": "wide", wide: "wide", w: "wide",
+  "3": "tall", tall: "tall", t: "tall",
+};
+
+/** Reads the shape question's answer: a shape, `null` for "use the usual", or "invalid". */
+export function parseShapeAnswer(answer: string): ImageShape | null | "invalid" {
+  const key = answer.trim().toLowerCase();
+  if (!key) return null;
+  return SHAPE_CHOICES[key] ?? "invalid";
+}
+
+/** `/imagine` with nothing after it: two short questions instead of flags to remember. */
+async function askForImagine(rl: readline.Interface): Promise<ImagineOptions | null> {
+  const prompt = (await rl.question(theme.bold("What should I paint? ") + theme.dim("(Enter to cancel) "))).trim();
+  if (!prompt) return null;
+
+  for (;;) {
+    const answer = await rl.question(
+      `Shape: ${theme.bold("1")} square  ${theme.bold("2")} wide  ${theme.bold("3")} tall  ${theme.dim("(Enter = usual) ")}`,
+    );
+    const shape = parseShapeAnswer(answer);
+    if (shape === "invalid") {
+      console.log(theme.dim("Type 1, 2 or 3, or just press Enter."));
+      continue;
+    }
+    return shape ? { prompt, shape } : { prompt };
+  }
+}
+
 export async function runImagine(
   service: ImageService,
   rl: readline.Interface,
   arg: string,
   signal?: AbortSignal,
 ): Promise<void> {
-  if (!arg.trim()) {
+  const trimmed = arg.trim();
+  if (trimmed === "help" || trimmed === "--help" || trimmed === "-h") {
     console.log(IMAGINE_USAGE);
     return;
   }
-  const parsed = parseImagineArgs(arg);
-  if (!parsed.ok) {
-    console.log(theme.error(parsed.error));
-    console.log(theme.dim(IMAGINE_USAGE));
-    return;
+
+  let options: ImagineOptions;
+  if (!trimmed) {
+    const asked = await askForImagine(rl);
+    if (!asked) {
+      console.log(theme.dim("Nothing painted."));
+      return;
+    }
+    options = asked;
+  } else {
+    const parsed = parseImagineArgs(arg);
+    if (!parsed.ok) {
+      console.log(theme.error(parsed.error));
+      console.log(theme.dim(IMAGINE_USAGE));
+      return;
+    }
+    options = parsed.options;
   }
 
   if (!service.isConfigured()) {
@@ -122,7 +167,7 @@ export async function runImagine(
 
   const activity = startActivity("painting", "painting…");
   try {
-    const result = await service.generate(parsed.options, signal);
+    const result = await service.generate(options, signal);
     activity.stop();
     service.display(result);
   } catch (err) {

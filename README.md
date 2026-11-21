@@ -96,6 +96,17 @@ Full slash-command reference: type `/help` inside the REPL, or see `docs/termina
 Arena mode pits multiple models against each other on the same task. Each participant gets its own git worktree on its own branch, so they work in full isolation — your working branch is never touched until you explicitly merge a winner.
 
 ```text
+Lattice› /arena
+What should the models do? Add input validation to the signup form
+  1. deepseek-v4-flash-0731   ...
+  2. qwen3-coder              ...
+Pick 2 or more models by number, e.g. 1 3 5  (Enter = same as last time): 1 2
+Check every result with npm test? [Y/n]
+```
+
+Lattice asks only for what you left out, so the one-line form still works for scripts and muscle memory:
+
+```text
 Lattice› /arena "Add input validation to the signup form" --models deepseek-v4-flash-0731,qwen3-coder --tests "npm test"
 ```
 
@@ -109,8 +120,8 @@ What happens:
 Then you decide:
 
 ```text
-/arena diff [label]      review a participant's actual diff before picking
-/arena pick <label>      merge that participant's work into your branch
+/arena diff [number]     review a participant's actual diff before picking
+/arena pick <number>     merge that participant's work into your branch (a model id works too)
 /arena list              show past and open arena runs
 /arena clean             discard the current open run without merging
 ```

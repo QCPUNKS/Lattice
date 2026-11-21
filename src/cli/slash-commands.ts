@@ -18,15 +18,18 @@ import { displayName } from "../mcp/manager.js";
 import { runArena, type ArenaParticipantSpec } from "../arena/orchestrator.js";
 import { ArenaLiveView, formatArenaStatus } from "../ui/arena-live.js";
 import { runImagine, runImageSettings } from "./commands/imagine.js";
+import { planArenaInteractively } from "./commands/arena-wizard.js";
 import { runVoiceCommand } from "./commands/voice.js";
 import { runMascotCommand, tokenBagFrame } from "./commands/mascot.js";
 import { renderCostReport } from "./commands/cost.js";
-import { formatRate, priceTier, type PriceTier } from "../billing/pricing.js";
+import { formatRate } from "../billing/pricing.js";
+import { agentCapableModels, formatContextTokens, formatPrice } from "./model-format.js";
 import type { TextPricing } from "../providers/types.js";
 import type { MascotDirector } from "../ui/mascot/director.js";
 import {
   runArenaCommand,
   renderScorecard,
+  arenaNextSteps,
   parseArenaSlashArgs,
   isArenaSubcommand,
 } from "./commands/arena.js";
@@ -73,13 +76,13 @@ const HELP_TEXT = `Slash commands:
   /run                    start the project's dev/start script
   /ps                     list background processes
   /stop <id>              stop a background process
-  /arena "<task>" --models a,b[,c] [--tests "cmd"]
-                           race models on the same task in isolated worktrees
-  /arena diff [label]      review a participant's actual diff before picking
-  /arena pick <label>      merge a participant's work into your branch
+  /arena                   race models on one task (asks for everything it needs)
+  /arena diff [number]     review a participant's actual diff before picking
+  /arena pick <number>     merge a participant's work into your branch
   /arena list              show past and open arena runs
   /arena clean             discard the current open run without merging
-  /imagine <prompt> [opts] generate an image inline (/imagine alone for options)
+  /imagine                 generate an image inline (asks what and what shape)
+  /imagine help            every image option (model, seed, negative prompt...)
   /image                   image settings: setup, models, model <id>, output <path>, safe on|off, open
   /voice [off|chat|dictate|listen]
                            voice mode: speak and/or hear (each direction independent)
@@ -380,12 +383,17 @@ export async function handleSlashCommand(
         return "handled";
       }
 
-      const promptText = positional.join(" ").trim();
-      if (!promptText || !models) {
-        console.log(theme.error('Usage: /arena "<what to do>" --models model-a,model-b [--tests "npm test"]'));
+      const plan = await planArenaInteractively(rl, runtime.provider, cfg, {
+        prompt: positional.join(" ").trim() || undefined,
+        models,
+        tests,
+      });
+      if (!plan) {
+        console.log(theme.dim("Arena cancelled."));
         return "handled";
       }
-      const participants: ArenaParticipantSpec[] = models.split(",").map((m) => ({ model: m.trim() }));
+      const promptText = plan.prompt;
+      const participants: ArenaParticipantSpec[] = plan.models.map((model) => ({ model }));
       if (participants.length < 2) {
         console.log(theme.error("Arena needs at least 2 models — got 1. Pass a comma-separated list, e.g. --models a,b"));
         return "handled";
@@ -395,14 +403,12 @@ export async function handleSlashCommand(
       const view = new ArenaLiveView(participants.map((p) => p.model));
       try {
         const run = await runArena(cfg, promptText, participants, {
-          testCommand: tests,
+          testCommand: plan.testCommand,
           onProgress: (label, event) => view.update(label, formatArenaStatus(label, event)),
         });
         view.finish();
         console.log(renderScorecard(run));
-        console.log(
-          theme.dim(`\n/arena diff [label] to review code, /arena pick <label> to merge, /arena clean to discard.`),
-        );
+        console.log(theme.dim(`\n${arenaNextSteps("/arena")}`));
       } catch (err) {
         view.finish();
         console.log(theme.error((err as Error).message));
@@ -437,13 +443,6 @@ export async function handleSlashCommand(
   }
 }
 
-function formatContextTokens(tokens: number | null): string {
-  if (!tokens) return "?";
-  if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(tokens % 1_000_000 === 0 ? 0 : 1)}M`;
-  if (tokens >= 1_000) return `${Math.round(tokens / 1_000)}K`;
-  return String(tokens);
-}
-
 /**
  * Interactive model picker: lists the full Venice catalog (agent-capable models
  * first — the agent loop needs tool calling) and switches on a number or id.
@@ -463,9 +462,7 @@ async function runModelPicker(state: ReplState): Promise<SlashResult> {
   }
 
   // Cheapest first: on Venice output prices span ~1,700x, so price is the first thing to see.
-  const selectable = models
-    .filter((m) => m.supportsTools)
-    .sort((a, b) => (a.pricing?.output ?? Infinity) - (b.pricing?.output ?? Infinity));
+  const selectable = agentCapableModels(models);
   const excluded = models.length - selectable.length;
 
   console.log(`Current model: ${theme.bold(cfg.model)}\n`);
@@ -528,20 +525,6 @@ async function switchModel(state: ReplState, id: string): Promise<void> {
   cfg.model = id;
   runtime.loop.setModel(id);
   console.log(theme.success(`Switched model to ${id}`));
-}
-
-const TIER_COLOR: Record<PriceTier, (s: string) => string> = {
-  budget: theme.success,
-  standard: (s) => s,
-  premium: theme.warning,
-  luxury: theme.error,
-};
-
-/** "$0.18 / $0.35" (in / out per M tokens), colored by price tier. */
-function formatPrice(pricing: TextPricing | null | undefined): string {
-  if (!pricing) return theme.dim("price ?".padEnd(17));
-  const text = `${formatRate(pricing.input).replace("/M", "")} / ${formatRate(pricing.output).replace("/M", "")}`.padEnd(17);
-  return TIER_COLOR[priceTier(pricing)!](text);
 }
 
 /** One-line warning/note when switching changes the price of work noticeably. */

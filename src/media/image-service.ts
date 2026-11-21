@@ -13,11 +13,15 @@ import { VeniceImageClient, type GeneratedImages } from "./image-client.js";
 import { inspectOutputDir, prepareOutputDir, saveGeneratedImages } from "./image-store.js";
 import type { SpendLedger } from "../billing/ledger.js";
 
+export type ImageShape = "square" | "wide" | "tall";
+
 export interface ImagineOptions {
   prompt: string;
   model?: string;
   negativePrompt?: string;
   aspectRatio?: string;
+  /** Plain-language shape; maps to the closest ratio the model supports. Ignored when aspectRatio is set. */
+  shape?: ImageShape;
   resolution?: string;
   seed?: number;
   steps?: number;
@@ -163,7 +167,9 @@ export class ImageService {
     const model = await this.resolveModel(options);
     const variants = options.variants ?? 1;
     const safeMode = options.safeMode ?? this.cfg.image.safeMode!;
-    const aspectRatio = options.aspectRatio ?? defaultAspectFor(model, this.cfg.image.aspectRatio);
+    const aspectRatio =
+      options.aspectRatio ??
+      (options.shape ? aspectForShape(model, options.shape) : defaultAspectFor(model, this.cfg.image.aspectRatio));
 
     // Re-check on every save: permissions can change after setup.
     const report = inspectOutputDir(outputDir);
@@ -240,4 +246,33 @@ export class ImageService {
 function defaultAspectFor(model: ImageModelInfo, configured: string): string {
   if (model.sizing.kind === "pixels") return configured;
   return model.sizing.aspectRatios.includes(configured) ? configured : model.sizing.defaultAspectRatio;
+}
+
+const PREFERRED_RATIO: Record<ImageShape, string> = { square: "1:1", wide: "16:9", tall: "9:16" };
+
+function ratioValue(ratio: string): number {
+  const [w, h] = ratio.split(":").map(Number);
+  return w > 0 && h > 0 ? w / h : NaN;
+}
+
+/**
+ * The supported ratio that best matches a plain-language shape: the usual one
+ * (16:9, 9:16, 1:1) when the model has it, otherwise the widest, tallest or
+ * squarest it offers, and the model's default if nothing fits the shape at all.
+ */
+export function aspectForShape(model: ImageModelInfo, shape: ImageShape): string {
+  const preferred = PREFERRED_RATIO[shape];
+  if (model.sizing.kind === "pixels") return preferred;
+  const supported = model.sizing.aspectRatios;
+  if (supported.includes(preferred)) return preferred;
+
+  const candidates = supported
+    .map((ratio) => ({ ratio, value: ratioValue(ratio) }))
+    .filter(({ value }) => Number.isFinite(value))
+    .filter(({ value }) => (shape === "wide" ? value > 1 : shape === "tall" ? value < 1 : true));
+  if (candidates.length === 0) return model.sizing.defaultAspectRatio;
+
+  const score = ({ value }: { value: number }) =>
+    shape === "wide" ? -value : shape === "tall" ? value : Math.abs(Math.log(value));
+  return candidates.reduce((best, c) => (score(c) < score(best) ? c : best)).ratio;
 }

@@ -213,13 +213,25 @@ export async function runArena(
   return run;
 }
 
-function findParticipantOrThrow(run: ArenaRun, label: string): ArenaParticipantResult {
-  const participant = run.results.find((r) => r.label === label);
-  if (!participant) {
-    throw new Error(`No arena participant labeled "${label}" in run ${run.id}. Options: ${run.results.map((r) => r.label).join(", ")}`);
+/**
+ * Finds a participant by its scorecard number ("1", "2", …) or by its label.
+ * Numbers exist so nobody has to retype a long model id to review or merge.
+ */
+export function resolveParticipant(run: ArenaRun, ref: string): ArenaParticipantResult {
+  const byLabel = run.results.find((r) => r.label === ref);
+  if (byLabel) return byLabel;
+  if (/^\d+$/.test(ref)) {
+    const byNumber = run.results[Number(ref) - 1];
+    if (byNumber) return byNumber;
   }
+  const options = run.results.map((r, i) => `${i + 1} (${r.label})`).join(", ");
+  throw new Error(`No arena participant "${ref}" in run ${run.id}. Choose one of: ${options}`);
+}
+
+function findParticipantOrThrow(run: ArenaRun, label: string): ArenaParticipantResult {
+  const participant = resolveParticipant(run, label);
   if (!participant.worktreePath) {
-    throw new Error(`"${label}" never produced a worktree to diff (${participant.error ?? "unknown error"}).`);
+    throw new Error(`"${participant.label}" never produced a worktree to diff (${participant.error ?? "unknown error"}).`);
   }
   return participant;
 }
@@ -240,12 +252,9 @@ export async function getArenaParticipantDiff(run: ArenaRun, label: string): Pro
 
 /** Merges the chosen participant's branch back onto the current branch, then tears down every worktree for this run. */
 export async function pickArenaWinner(cfg: LatticeConfig, run: ArenaRun, label: string): Promise<ArenaRun> {
-  const winner = run.results.find((r) => r.label === label);
-  if (!winner) {
-    throw new Error(`No arena participant labeled "${label}" in run ${run.id}. Options: ${run.results.map((r) => r.label).join(", ")}`);
-  }
+  const winner = resolveParticipant(run, label);
   if (winner.status !== "ok") {
-    throw new Error(`Participant "${label}" did not finish successfully (${winner.status}: ${winner.error ?? "unknown error"}) — nothing to merge.`);
+    throw new Error(`Participant "${winner.label}" did not finish successfully (${winner.status}: ${winner.error ?? "unknown error"}) — nothing to merge.`);
   }
 
   await assertCleanWorktree(cfg.workspace);
@@ -255,7 +264,7 @@ export async function pickArenaWinner(cfg: LatticeConfig, run: ArenaRun, label: 
     if (r.worktreePath) await removeWorktree(cfg.workspace, r.worktreePath, r.branch);
   }
 
-  const updated: ArenaRun = { ...run, status: "resolved", winner: label };
+  const updated: ArenaRun = { ...run, status: "resolved", winner: winner.label };
   await saveArenaRun(cfg.dataDir, updated);
   return updated;
 }
