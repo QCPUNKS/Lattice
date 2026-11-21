@@ -51,6 +51,7 @@ mode = "normal"
 [venice]
 base_url = "https://api.venice.ai/api/v1"   # global config only; must be HTTPS
 # api_key = "..."   # prefer VENICE_API_KEY / .env instead — see Security note below
+# backup_api_key = "..."   # set with `lattice key backup`; used when the main key runs out
 
 [workspace]
 root = "."           # global config only
@@ -122,3 +123,17 @@ silently ignored in project configs.
 ## Security note
 
 Never commit `.lattice/config.toml` with a real `api_key` in it — even though `.lattice/` is gitignored automatically once a project has a `.git` directory, prefer `VENICE_API_KEY` in your environment or a local `.env` for secrets.
+
+## Backup key
+
+`lattice key backup` saves a second Venice key (hidden input, checked with Venice
+before saving, stored owner-only in `~/.config/lattice/config.toml`). The
+`VENICE_API_KEY_BACKUP` environment variable works too and takes priority.
+
+Lattice always starts on the main key. If Venice answers that the main key is
+out of credit (402), rate-limited (429), or over a spending limit (403 naming
+it), Lattice retries that same request on the backup key, prints one notice,
+and stays on the backup until it exits. Chat, arena racers, `/imagine` and
+voice all switch together. A rejected key (401) or a bad request never
+triggers the switch. `lattice key` shows both keys (last four characters only)
+and their balances.

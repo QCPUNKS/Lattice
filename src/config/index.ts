@@ -97,6 +97,8 @@ export interface LatticeConfig {
   provider: "venice";
   model: string;
   veniceApiKey: string | undefined;
+  /** Used only when the main key runs out of credit or hits its rate limit. */
+  veniceBackupApiKey: string | undefined;
   veniceBaseUrl: string;
   temperature: number;
   maxTokens: number;
@@ -179,7 +181,7 @@ interface TomlConfigShape {
   provider?: string;
   model?: string;
   mode?: string;
-  venice?: { base_url?: string; api_key?: string };
+  venice?: { base_url?: string; api_key?: string; backup_api_key?: string };
   workspace?: { root?: string };
   agent?: {
     max_iterations?: number;
@@ -288,6 +290,7 @@ export function loadConfig(overrides: ConfigOverrides = {}): LatticeConfig {
   let mode: PermissionMode = DEFAULTS.mode;
   let veniceBaseUrl = DEFAULTS.veniceBaseUrl;
   let veniceApiKey: string | undefined;
+  let veniceBackupApiKey: string | undefined;
   let temperature = DEFAULTS.temperature;
   let maxTokens = DEFAULTS.maxTokens;
   let maxIterations = DEFAULTS.maxIterations;
@@ -313,6 +316,7 @@ export function loadConfig(overrides: ConfigOverrides = {}): LatticeConfig {
   }
   if (process.env.VENICE_BASE_URL) veniceBaseUrl = process.env.VENICE_BASE_URL;
   veniceApiKey = process.env.VENICE_API_KEY;
+  veniceBackupApiKey = process.env.VENICE_API_KEY_BACKUP || undefined;
   if (process.env.LATTICE_TEMPERATURE) temperature = envNum(process.env.LATTICE_TEMPERATURE, temperature);
   if (process.env.LATTICE_MAX_TOKENS) maxTokens = envNum(process.env.LATTICE_MAX_TOKENS, maxTokens);
 
@@ -343,6 +347,7 @@ export function loadConfig(overrides: ConfigOverrides = {}): LatticeConfig {
   if (globalToml) {
     if (globalToml.venice?.base_url) veniceBaseUrl = globalToml.venice.base_url;
     if (globalToml.venice?.api_key && !veniceApiKey) veniceApiKey = globalToml.venice.api_key;
+    if (globalToml.venice?.backup_api_key && !veniceBackupApiKey) veniceBackupApiKey = globalToml.venice.backup_api_key;
     applyImageToml(image, globalToml.image);
     applyBudgetToml(budget, globalToml.budget); // a cloned repo must not be able to raise your spending limits
     applyVoiceToml(voice, globalToml.voice);
@@ -363,6 +368,7 @@ export function loadConfig(overrides: ConfigOverrides = {}): LatticeConfig {
     provider: "venice",
     model,
     veniceApiKey,
+    veniceBackupApiKey,
     veniceBaseUrl,
     temperature,
     maxTokens,

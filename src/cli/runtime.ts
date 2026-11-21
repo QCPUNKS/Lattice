@@ -16,6 +16,7 @@ import { ensureProjectMemory, ensureLatticeDirGitignored } from "../project/memo
 import { createAuditLogger } from "../audit/log.js";
 import { killAllManagedProcesses } from "../tools/shell.js";
 import { VeniceHttp } from "../providers/venice-http.js";
+import { theme } from "../ui/theme.js";
 import { ImageService } from "../media/image-service.js";
 import { VoiceController } from "../voice/controller.js";
 import { repairPrivateStorage } from "../security/private-storage.js";
@@ -62,7 +63,11 @@ export async function buildRuntime(cfg: LatticeConfig, options: RuntimeOptions):
   const auditLog = createAuditLogger(cfg.dataDir, options.debug);
   if (tightened > 0) auditLog({ type: "private_storage_repaired", entries: tightened });
 
-  const http = new VeniceHttp(cfg.veniceApiKey ?? "", cfg.veniceBaseUrl);
+  const http = new VeniceHttp(cfg.veniceApiKey ?? "", cfg.veniceBaseUrl, cfg.veniceBackupApiKey);
+  http.onKeySwitch((reason) => {
+    auditLog({ type: "venice_key_switched", to: "backup", reason: reason.slice(0, 200) });
+    process.stderr.write(theme.warning("\n  Main Venice key is out of credit or rate-limited. Switched to your backup key for this session.\n"));
+  });
   const provider = new VeniceProvider(
     {
       apiKey: cfg.veniceApiKey ?? "",

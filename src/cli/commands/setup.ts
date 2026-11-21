@@ -24,7 +24,7 @@ export async function runSetupCommand(cfg: LatticeConfig): Promise<number> {
     if (!apiKey) {
       apiKey = (await rl.question("Venice API key (from https://venice.ai): ")).trim() || undefined;
     } else {
-      console.log(theme.dim(`Venice API key already set via environment/.env — leaving as-is.`));
+      console.log(theme.dim(`Venice API key already set — leaving as-is. Use 'lattice key set' to switch keys.`));
     }
 
     let model = cfg.model;

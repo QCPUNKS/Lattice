@@ -23,6 +23,7 @@ import { runArenaCommand } from "./cli/commands/arena.js";
 import { runSessionsCommand } from "./cli/commands/sessions.js";
 import { runConfigCommand } from "./cli/commands/config.js";
 import { runSetupCommand } from "./cli/commands/setup.js";
+import { runKeyCommand } from "./cli/commands/key.js";
 import {
   runInspectCommand,
   runStatusCommand,
@@ -41,6 +42,7 @@ const KNOWN_COMMANDS = new Set([
   "session",
   "config",
   "setup",
+  "key",
   "inspect",
   "status",
   "diff",
@@ -103,6 +105,8 @@ async function main(): Promise<number> {
       return runConfigCommand(cfg, parsed.positional[0], parsed.positional[1], parsed.positional[2]);
     case "setup":
       return runSetupCommand(cfg);
+    case "key":
+      return runKeyCommand(cfg, parsed.positional[0]);
     case "inspect":
       return runInspectCommand(cfg);
     case "status":

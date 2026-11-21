@@ -7,6 +7,35 @@ const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
 const MAX_RETRIES = 3;
 const BASE_BACKOFF_MS = 500;
 
+/**
+ * Responses that mean "this key can't go on" rather than "this request is bad":
+ * out of credit (402), rate-limited (429), or a 403 that names a spending limit.
+ * Any of them moves Lattice to the backup key, when one is configured.
+ */
+export function isKeyExhausted(status: number, body: string): boolean {
+  if (status === 402 || status === 429) return true;
+  return status === 403 && /limit|quota|balance|credit|insufficient/i.test(body);
+}
+
+/** Same request, signed with a different key. Only an existing Authorization header is replaced. */
+function withApiKey(init: RequestInit, apiKey: string): RequestInit {
+  const bearer = `Bearer ${apiKey}`;
+  const { headers } = init;
+  if (!headers) return init;
+
+  if (headers instanceof Headers || Array.isArray(headers)) {
+    const copy = new Headers(headers);
+    if (!copy.has("Authorization")) return init;
+    copy.set("Authorization", bearer);
+    return { ...init, headers: copy };
+  }
+
+  // Plain object (what authHeaders()/jsonHeaders() build): keep its shape and key casing.
+  const name = Object.keys(headers).find((k) => k.toLowerCase() === "authorization");
+  if (!name || headers[name] === bearer) return init;
+  return { ...init, headers: { ...headers, [name]: bearer } };
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -29,16 +58,49 @@ export interface BalanceReading {
 export class VeniceHttp {
   private balance: BalanceReading | null = null;
   private balanceListeners: ((reading: BalanceReading) => void)[] = [];
+  private keySwitchListeners: ((reason: string) => void)[] = [];
+  private readonly keys: string[];
+  private activeKey = 0;
 
+  /**
+   * `backupApiKey` takes over for the rest of the process once the main key is
+   * exhausted (see isKeyExhausted). The next launch starts on the main key again,
+   * so a key whose credit resets daily is used first whenever it can be.
+   */
   constructor(
-    private readonly apiKey: string,
+    apiKey: string,
     readonly baseUrl: string,
+    backupApiKey?: string,
   ) {
     if (!apiKey) {
       throw new ProviderError(
         "VENICE_API_KEY is not set. Export it or add it to .env before running lattice.",
       );
     }
+    this.keys = backupApiKey && backupApiKey !== apiKey ? [apiKey, backupApiKey] : [apiKey];
+  }
+
+  private get apiKey(): string {
+    return this.keys[this.activeKey];
+  }
+
+  /** True once requests are being signed with the backup key. */
+  usingBackupKey(): boolean {
+    return this.activeKey > 0;
+  }
+
+  /** Called once, with Venice's reason, when Lattice moves to the backup key. */
+  onKeySwitch(listener: (reason: string) => void): void {
+    this.keySwitchListeners.push(listener);
+  }
+
+  /** Moves to the next key if there is one. Returns false when none is left. */
+  private switchToNextKey(reason: string): boolean {
+    if (this.activeKey + 1 >= this.keys.length) return false;
+    this.activeKey++;
+    this.balance = null; // the old key's balance says nothing about the new one
+    for (const listener of this.keySwitchListeners) listener(reason);
+    return true;
   }
 
   authHeaders(extra: Record<string, string> = {}): Record<string, string> {
@@ -96,12 +158,19 @@ export class VeniceHttp {
     let lastErr: unknown;
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
-        const res = await fetch(url, { ...init, signal });
+        const res = await fetch(url, { ...withApiKey(init, this.apiKey), signal });
         this.observe(res);
         if (res.ok) return res;
 
         const bodyText = await res.text().catch(() => "");
         const retryable = RETRYABLE_STATUS.has(res.status);
+
+        // Main key out of credit or rate-limited: retry right away on the backup
+        // key. This doesn't use up a retry, since it's a different key.
+        if (isKeyExhausted(res.status, bodyText) && this.switchToNextKey(`${res.status} ${bodyText || res.statusText}`.trim())) {
+          attempt--;
+          continue;
+        }
 
         if (retryable && attempt < MAX_RETRIES) {
           const retryAfter = res.headers.get("retry-after");

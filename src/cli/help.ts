@@ -16,6 +16,9 @@ One-shot (for scripts and CI):
 
 Setup and diagnostics:
   lattice setup                    interactive first-run wizard
+  lattice key                      show the active Venice key (masked) and balance
+  lattice key set                  switch to a new Venice key (hidden input, checked first)
+  lattice key backup               add a backup key, used when the main one runs out
   lattice doctor                   check config, API, and tools
   lattice models                   list available models
   lattice config [show]            print the active settings
