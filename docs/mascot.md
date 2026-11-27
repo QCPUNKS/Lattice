@@ -3,7 +3,7 @@
 
 # Kit10: mascot and visuals
 
-Lattice v3 has **Kit10**, an animated mascot who shows what the agent is doing, a
+Lattice has **Kit10**, an animated mascot who shows what the agent is doing, a
 gradient LATTICE wordmark, and a starfield banner. The artwork comes from the
 design sheets in `assets/mascot/source/`.
 

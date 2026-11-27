@@ -29,15 +29,18 @@ This guide covers every Lattice command in plain language: what it does, when yo
 ### Step 1: Install
 
 ```bash
+git clone https://github.com/QCPUNKS/Lattice.git
 cd Lattice
 ./install.sh
 ```
 
-This installs the dependencies, builds Lattice, and puts the `lattice` command on your PATH. You need Node.js 20 or newer.
+This downloads Lattice, installs what it needs, builds it, and adds the `lattice` command to your terminal. You need Node.js 20 or newer (check with `node --version`) and git.
 
 ### Step 2: Give it your API key
 
-Lattice talks to AI models through Venice AI, so it needs your Venice API key. The easiest way:
+Lattice talks to AI models through Venice AI, so it needs a Venice API key. Create one at [venice.ai/settings/api](https://venice.ai/settings/api). Venice charges per use from your account balance, so add some before your first request (USD credits, staked DIEM, or a paid Venice plan's API allowance). Lattice itself is free.
+
+Then run:
 
 ```bash
 lattice setup
@@ -188,6 +191,19 @@ lattice setup
 ```
 
 Walks you through API key, default model, default workspace, and permission mode (see Part 1). Run it again any time to change those defaults. If your key already comes from an environment variable or `.env`, setup leaves it alone.
+
+### `lattice key`: manage your Venice keys
+
+```bash
+lattice key            # which key is in use (only the last 4 characters) and its balance
+lattice key set        # switch to a new key
+lattice key backup     # add a second key for when the first runs out
+```
+
+- **`set`** asks for the new key with the typing hidden, checks it with Venice, and only saves it if it works. If an older key is also set somewhere else (like your shell profile or a `.env` file), it tells you where, so you know which one wins.
+- **`backup`** saves a second key. When the main key runs out of credit or hits Venice's rate limit, Lattice switches to the backup automatically, retries what it was doing, and tells you once.
+
+Keys are saved to `~/.config/lattice/config.toml`, readable only by you.
 
 ### `lattice doctor`: health check
 
@@ -442,7 +458,18 @@ Lattice saves a copy of every file **before** it changes it, so you can undo eve
 
 ### Arena (race models)
 
-The same as `lattice arena` (Part 3), but from inside a chat, with a live progress view while the models work:
+The same as `lattice arena` (Part 3), but from inside a chat, with a live progress view while the models work.
+
+**The easy way:** type `/arena` by itself and answer three questions: what the models should do, which models to race (pick numbers from a list, like `1 3`), and whether to check each result with your tests.
+
+```text
+/arena
+What should the models do? Add input validation to the signup form
+Pick 2 or more models by number, e.g. 1 3 5: 1 2
+Check every result with npm test? [Y/n] y
+```
+
+**The quick way,** if you already know what you want (good for scripts):
 
 ```text
 /arena "Add input validation to the signup form" --models modelA,modelB --tests "npm test"
@@ -452,14 +479,14 @@ The same as `lattice arena` (Part 3), but from inside a chat, with a live progre
 /arena clean
 ```
 
-Put the task in **double quotes**.
+When typing it all on one line, put the task in **double quotes**. After the race, the scorecard numbers each model, so `/arena diff 1` and `/arena pick 1` work.
 
 ### Images
 
 | Command | What it does |
 |---|---|
 | `/imagine <description>` | Generates an image and shows it right in the terminal (Kitty, WezTerm, Ghostty, Konsole). |
-| `/imagine` | With nothing after it, shows all the options. |
+| `/imagine` | With nothing after it, asks what to paint and what shape (square, wide or tall). |
 | `/image` | Shows your image settings. |
 | `/image setup` | Re-runs first-time image setup (save folder and safe mode). |
 | `/image models` | Lists image models: private or third-party, price, and supported sizes. |
@@ -618,6 +645,7 @@ lattice exec --mode auto "Fix lint errors" || echo "Lattice failed with code $?"
 | Problem | Fix |
 |---|---|
 | `VENICE_API_KEY is not set` | Run `lattice setup`, or put `VENICE_API_KEY=…` in `.env`. Check with `lattice doctor`. |
+| Out of credit, or "rate limit" errors | Top up at venice.ai, or add a second key with `lattice key backup` so Lattice switches automatically next time. |
 | `Unknown command or path: …` | Typo in the command name, or the folder doesn't exist. |
 | `Unknown flag: …` | That option doesn't exist. `lattice --help` lists the real ones. |
 | The AI chats but never edits files | Your model can't use tools. Run `/model` and pick one from the list (all of them can). |

@@ -99,14 +99,13 @@ Image and voice features refuse `anonymized` models by default
 open items). Venice's retention claims are theirs to keep; Lattice can't
 verify them.
 
-### 6. The accidental publish
+### 6. Accidentally publishing your own data
 
-- The v3 repository can push only to local paths (the encrypted vault
-  backup). A pre-push hook refuses every network remote, whatever branch,
-  tag, or commit is named.
-- `package.json` is marked `"private": true`, so `npm publish` refuses.
-- An image folder inside a git repository triggers a warning at setup.
-- `.env` and `.lattice/` are gitignored.
+- `.env` (where your API key may live) and `.lattice/` (project notes and
+  agent state) are gitignored, so a `git add .` won't pick them up.
+- Choosing an image folder inside a git repository triggers a warning at
+  setup, so generated images don't end up committed by mistake.
+- Generated image file names never contain your prompt.
 
 ## Known gaps and open items
 

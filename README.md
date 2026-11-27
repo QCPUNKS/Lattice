@@ -1,198 +1,308 @@
 <!-- Copyright (c) 2026 Jevante Boxley -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# LATTICE
+# Lattice
 
-A terminal-native AI software engineering agent, built on Venice AI's OpenAI-compatible API. Runs from Kitty (or any terminal), gets real access to your filesystem, shell, and git, and does the work rather than just describing it.
+**An AI coding partner that lives in your terminal.**
 
-## What Lattice is
+Tell Lattice what you want in plain English: *"fix the login bug and run the tests."* It reads your code, makes the changes, runs your commands, and shows you every step. It asks before doing anything risky, and one command undoes its last change.
 
-- **Provider abstraction** with a full **Venice AI** implementation: SSE streaming, tool calling, retries with backoff on 429/5xx, timeouts, cancellation, model capability discovery via `/models`.
-- **Agent loop**: multi-turn model ↔ tool-call ↔ result cycle with configurable iteration/tool-call caps, automatic repeated-failure detection (stops instead of looping on the same failing command), and automatic context compaction as the conversation grows.
-- **26 native tools**: filesystem (read/write/edit/create/delete/list/search/stat/exists/copy/move, multi-file read, ripgrep-backed search), shell (foreground commands + managed background processes with process-group kill), git (status/diff/log/branch/commit), and project inspection.
-- **Arena mode**: run the same task across multiple models in parallel, each in its own isolated git worktree, with your test suite run against every result. A live scorecard shows files changed, tokens used, duration, and test outcome per model — then you review the actual diffs and merge only the winner. See [Arena](#arena) below.
-- **Real MCP client** (stdio + streamable-HTTP) — connects to configured servers, discovers and namespaces their tools, and exposes them to the model alongside the native ones. Project-scoped servers are surfaced and confirmed before Lattice spawns anything from a repo you don't own.
-- **Permission system**: `safe`/`normal`/`auto` autonomy modes crossed with a `safe`/`caution`/`destructive`/`critical` command risk classifier — destructive and critical actions always require confirmation, no matter the mode.
-- **Safety boundaries**: filesystem tools can't escape the workspace directory; `.env`/`*.pem`/`*.key`/credential-shaped files are never read without an explicit prompt; tool output is bounded so a runaway command can't blow out the context window.
-- **Sessions**: every conversation persists to `~/.local/share/lattice/sessions/`, resumable with `--session <id>`/`--session latest`, exportable to markdown or JSON.
-- **Project memory**: `.lattice/` scaffolding (context notes, architecture/decisions/conventions files, agent state) that survives between runs and gets fed back into the system prompt; auto-gitignored.
-- **Undo/diff**: every file touched in a turn is snapshotted before the first write, independent of git, so `/diff` and `/undo` work even in an uncommitted repo.
-- **Audit log**: every permission decision and command execution is written as structured JSON to a local audit trail (`lattice audit`).
-- **Full CLI surface**: interactive REPL, `lattice exec`/`lattice ask` for scripting (with real exit codes), `lattice doctor`, `lattice setup`, `lattice mcp`, `lattice sessions`, `lattice config`, `lattice inspect/status/diff/test/build/run`, `lattice --help`.
-- **Tests**: unit tests for the provider, permission/risk classifier, filesystem safety, config precedence, and context compaction, plus a fixture-based integration test that proves the full read → edit → verify loop actually works end-to-end.
+Lattice runs on [Venice AI](https://venice.ai), so you bring your own Venice API key and pay Venice only for what you use. Lattice itself is free.
 
-## Requirements
+```text
+lattice › The checkout total is wrong when a coupon is applied. Fix it and run the tests.
 
-- Node.js ≥ 20
-- **Platform**: Linux and macOS are fully supported out of the box. Windows works via WSL2 or Git Bash — native `cmd.exe`/PowerShell isn't supported yet (the installer is a bash script, shell-tool process cleanup relies on POSIX process groups, and the agent's generated commands assume a POSIX shell).
-Plug in your own API key from what ever model/subscription you got going on 
+  → search_content {"pattern":"applyCoupon"}
+  → read_file {"path":"src/cart/totals.ts"}
+  → edit_file {"path":"src/cart/totals.ts", …}
+  → run_command {"command":"npm test"}
 
-## Installation
+The coupon discount was subtracted twice: once in applyCoupon() and again in
+calculateTotal(). It now happens only in calculateTotal(). All 48 tests pass.
+
+$0.0042 turn · $0.21 today · bal $12.40
+```
+
+---
+
+## What you can do with it
+
+| | |
+|---|---|
+| **Fix, build, and explain code** | Describe the job. Lattice finds the right files, edits them, and checks its own work by running your tests. |
+| **Race AI models (Arena)** | Give the same task to 2 or more models at once. Each works on its own copy of your project. Compare the results and keep only the best one. |
+| **Undo anything it just did** | `/undo` puts back every file from its last reply, even in a folder that isn't a git repo. |
+| **Watch your spending** | Every reply shows what it cost. Set daily or monthly limits and Lattice stops before going over. |
+| **Make images** | `/imagine a glass cube over a neon grid` creates an image and shows it right in your terminal. |
+| **Talk to it** | Speak your request and hear the answer. Voice runs on your own computer by default: free and offline. |
+| **Meet Kit10** | An animated mascot who shows what Lattice is doing: thinking, reading, typing, building. |
+| **Add more tools** | Connect MCP servers (plug-ins that add tools, like a database browser or Blender) and Lattice can use them too. |
+
+---
+
+## What you need
+
+- **A Venice AI account with an API key and some balance.** Create the key at [venice.ai/settings/api](https://venice.ai/settings/api). Venice charges per use from your balance: add USD credits there, stake DIEM, or use the API allowance that comes with a paid Venice plan.
+- **Node.js 20 or newer.** Check with `node --version`. Get it at [nodejs.org](https://nodejs.org).
+- **git.** Check with `git --version`.
+- **Linux or macOS.** On Windows, use WSL2.
+- **Optional:** a terminal that can show images (Kitty, WezTerm, Ghostty, or Konsole 22.04+) for Kit10 and inline pictures. Lattice works in any terminal without them.
+
+---
+
+## Install in 4 steps
+
+**1. Download Lattice**
 
 ```bash
+git clone https://github.com/QCPUNKS/Lattice.git
 cd Lattice
+```
+
+**2. Install it**
+
+```bash
 ./install.sh
 ```
 
-or manually:
+This installs what Lattice needs, builds it, and adds the `lattice` command to your terminal.
+
+**3. Add your Venice key**
 
 ```bash
-npm install
-npm run build
-npm link   # makes `lattice` available on your PATH
+lattice setup
 ```
 
-Run without linking: `npm run dev` (runs `src/index.ts` directly via `tsx`, no build step).
+It asks four quick questions. Press **Enter** to accept the suggestion in `[brackets]`:
 
-## Configuration
+1. Your Venice API key (paste it in)
+2. Which AI model to use by default
+3. Which folder to work in by default
+4. How much Lattice may do without asking. Choose **normal** if you're not sure.
+
+**4. Check that it works**
 
 ```bash
-cp .env.example .env   # then fill in VENICE_API_KEY
+lattice doctor
 ```
 
-or `lattice setup` for an interactive wizard that saves to `~/.config/lattice/config.toml`. Full precedence and every setting: `docs/configuration.md`.
+Green ✓ marks mean you're ready. A red ✗ tells you exactly what to fix.
 
-## Usage
+---
+
+## Your first chat
+
+Go to any project folder and start Lattice:
 
 ```bash
 cd ~/Projects/my-app
 lattice
 ```
 
-```text
-╭────────────────────────────────────\
-│ Lattice                                                     / \/\/\/\/\/\/\    \   
-│ Personal AI Development Agent      \ _______  / \    |
-│                                                                   |  \/    \/     |\     |
-│ Model       deepseek-v4-flash-0731     |                |       |
-│ Provider    YOUR_API_KEY                |      U       |        |                     
-│ Workspace   ~/Projects/my-app         |    \___/    |        /
-│ Mode        NORMAL                             |  ______   |      /              
-│ Tools       26 built-in                             \/  |       |  \/     /
-╰──────────────────────────────────── /
-
-Lattice› Fix the authentication bug and run the tests.
-```
-
-Scripting / CI:
-
-```bash
-lattice exec "Run the test suite and fix all failures."   # real exit code, no interactive prompts
-lattice ask "Explain what this project does."
-```
-
-Diagnostics:
-
-```bash
-lattice doctor      # config/connectivity/MCP check
-lattice models      # Venice models + capabilities (context length, tools, reasoning, vision)
-lattice mcp test     # connect to every configured MCP server and report status
-```
-
-Full slash-command reference: type `/help` inside the REPL, or see `docs/terminal-ui.md`.
-
-## Arena
-
-Arena mode pits multiple models against each other on the same task. Each participant gets its own git worktree on its own branch, so they work in full isolation — your working branch is never touched until you explicitly merge a winner.
+Type what you want and press **Enter**. Some good first requests:
 
 ```text
-Lattice› /arena
+Explain what this project does and how it's organized.
+Find why the signup page crashes and fix it.
+Add a test for the password reset function, then run all the tests.
+```
+
+### When Lattice asks permission
+
+Before it changes something, Lattice may stop and ask:
+
+```text
+  Allow? [y]es / [n]o / [a]lways this session:
+```
+
+- **y**: yes, this time.
+- **n**: no. Lattice is told it was refused and finds another way.
+- **a**: yes, and don't ask again for this kind of action until you quit.
+
+How often it asks depends on the **mode** you picked:
+
+| Mode | What it does on its own | What it asks about |
+|---|---|---|
+| **safe** | nothing | everything |
+| **normal** (recommended) | reading files, running tests, safe commands like `git status` | installing packages, unfamiliar commands, and anything risky |
+| **auto** | almost everything | only risky actions |
+
+**Risky actions always ask, in every mode:** deleting files, `rm`, `sudo`, `git reset --hard`, force-pushing, and similar. Lattice also always asks before opening secret files like `.env` or SSH keys, and it can never touch files outside your project folder.
+
+### Keys to know
+
+| Key | What it does |
+|---|---|
+| **Enter** | Send your message |
+| **Ctrl+C** | Stop what Lattice is doing right now. Your chat stays open. |
+| **Ctrl+D** or `/quit` | Leave Lattice |
+
+---
+
+## The commands you'll use most
+
+Inside a chat, commands start with `/`. Type `/help` any time to see them all.
+
+| Command | What it does |
+|---|---|
+| `/diff` | Show exactly what Lattice changed in its last reply |
+| `/undo` | Put those files back the way they were |
+| `/model` | Pick a different AI model from a list, cheapest first |
+| `/cost` | See your Venice balance and what you've spent |
+| `/test` | Run your project's tests |
+| `/arena` | Race several models on one task (it asks you what to do) |
+| `/imagine` | Make an image (it asks you what to paint) |
+| `/voice chat` | Talk to Lattice and hear it answer |
+| `/compact` | Shrink a long conversation so it runs faster and cheaper |
+| `/reset` | Start a fresh conversation (the old one stays saved) |
+
+From your normal terminal:
+
+| Command | What it does |
+|---|---|
+| `lattice` | Start a chat in the current folder |
+| `lattice --session latest` | Continue your last chat in this folder |
+| `lattice ask "…"` | Ask one question and get the answer, no chat |
+| `lattice exec "…"` | Do one job and exit (for scripts and automation) |
+| `lattice doctor` | Check that everything is set up correctly |
+| `lattice key` | See which Venice key is in use and its balance |
+| `lattice --help` | List every command |
+
+Every command, with examples: **[the User Guide](docs/user-guide.md)**.
+
+---
+
+## Arena: let the models compete
+
+Not sure which AI model is best for a job? Make them race.
+
+```text
+lattice › /arena
 What should the models do? Add input validation to the signup form
   1. deepseek-v4-flash-0731   ...
   2. qwen3-coder              ...
-Pick 2 or more models by number, e.g. 1 3 5  (Enter = same as last time): 1 2
-Check every result with npm test? [Y/n]
+Pick 2 or more models by number, e.g. 1 3 5: 1 2
+Check every result with npm test? [Y/n] y
 ```
 
-Lattice asks only for what you left out, so the one-line form still works for scripts and muscle memory:
+Each model gets its own private copy of your project, so they can't interfere with each other or with your code. When they finish, you get a scorecard showing whose tests passed, how many files and lines each changed, how many tokens it used, and how long it took.
+
+Then you choose:
 
 ```text
-Lattice› /arena "Add input validation to the signup form" --models deepseek-v4-flash-0731,qwen3-coder --tests "npm test"
+/arena diff 1     look at model 1's changes
+/arena pick 1     keep model 1's work and throw away the rest
+/arena clean      throw away all of them
 ```
 
-What happens:
+**Nothing touches your code until you pick a winner.** Your project needs to be a git repository for Arena to work.
 
-1. Lattice verifies your worktree is clean (auto-committing if you allow it), then creates one worktree + branch per model.
-2. Every model runs the full agent loop on the task in parallel, with live per-participant progress (tool calls, test runs, errors).
-3. If you passed `--tests`, the command runs inside each worktree after the agent finishes — its exit code feeds the scorecard.
-4. You get a scorecard: files changed, insertions/deletions, tokens used, duration, and tests passed/failed per model.
-
-Then you decide:
-
-```text
-/arena diff [number]     review a participant's actual diff before picking
-/arena pick <number>     merge that participant's work into your branch (a model id works too)
-/arena list              show past and open arena runs
-/arena clean             discard the current open run without merging
-```
-
-Nothing is merged automatically — the scorecard informs the decision, the diff review makes it, and losing branches are cleaned up on `/arena pick` or `/arena clean`.
+---
 
 ## Costs
 
-Venice output prices differ ~1,700× between models, so Lattice tracks every cent. After each answer it shows the turn's cost, today's total, and your Venice balance. `/cost` breaks spending down by session, day, month, and model. `/model` lists models cheapest first and warns when a switch multiplies your cost. Optional daily and monthly budgets are checked before every model call. Full guide: `docs/costs.md`.
+Venice charges per use, and some models cost over 1,000× more than others. Lattice keeps you informed:
 
-## Kit10
+- After every reply: what that reply cost, today's total, and your balance.
+- `/model` lists models cheapest first and warns you when a switch will cost more.
+- `/cost` breaks down spending by day, month, and model.
+- Optional spending limits. Add to `~/.config/lattice/config.toml`:
 
-In Kitty (and WezTerm, Ghostty, Konsole) Lattice v3 has **Kit10**, an animated mascot. She climbs in beside the gradient LATTICE wordmark at startup, then shows what the agent is doing: thinking, reading, typing, building, painting, listening, speaking. `/context` shows her token bag filling with the context window, and `/kit10` tours every pose. Animation runs inside the terminal, so it costs no CPU. `reduced_motion` holds still poses. Full guide: `docs/mascot.md`.
+  ```toml
+  [budget]
+  daily_usd = 2.00
+  monthly_usd = 20.00
+  ```
 
-## Voice
+  Before a request would cross a limit, Lattice asks first.
 
-Talk to Lattice and hear it answer, with input and output independently switchable:
+Running low on credit? `lattice key backup` adds a second Venice key, and Lattice switches to it automatically when the first one runs out. More: [docs/costs.md](docs/costs.md).
 
-| `/voice chat` | `/voice dictate` | `/voice listen` | `/voice off` |
-|---|---|---|---|
-| speak → hear | speak → read | type → hear | type → read |
-
-Push-to-talk: **Enter on an empty line** starts recording, **Enter** sends, **Ctrl+C** cancels. Spoken replies skip code blocks and always print as captions. Voice runs **locally by default**, free and offline: Whisper on your GPU and Kokoro on your machine (`scripts/voice/install-local-voice.sh`), with Venice's hosted voice available as an alternative. Audio never touches disk. Full guide: `docs/voice.md`.
+---
 
 ## Images
 
 ```text
-lattice › /imagine a glass cube floating over a neon grid --aspect 16:9
+lattice › /imagine a glass cube floating over a neon grid
 ```
 
-Generates with your Venice image models, shows the result inline (Kitty, WezTerm, Ghostty, Konsole), and saves it owner-only to a folder you choose on first use. Private models only by default, and file names never contain your prompt. Settings live under `/image`. Full guide: `docs/images.md`.
+Or type `/imagine` by itself and it asks what to paint and what shape (square, wide, or tall). The picture appears right in your terminal if it supports images, and is saved to a folder you pick the first time.
 
-## Security
+By default Lattice only uses Venice's **private** image models, which don't store your prompt, and file names never contain your prompt. More: [docs/images.md](docs/images.md).
 
-- Filesystem tools cannot read or write outside the workspace directory — every path is resolved and checked before use.
-- `.env`, `*.pem`, `*.key`, SSH private keys, `credentials.*`, `secrets.*` require an explicit confirmation before Lattice reads or sends their contents anywhere.
-- Destructive/critical shell commands (`rm`, `git reset --hard`, `sudo`, `chmod -R`, `dd`, ...) always require confirmation, in every autonomy mode.
-- API keys are never logged in full (`redactKey` shows only first/last 4 chars) and never appear in the audit trail.
-- Command and file output is truncated before being sent to the model, bounding both context usage and the blast radius of a runaway command.
-- Symlinks can't be used to escape the workspace: file tools check real paths, not just path text.
-- A project's `.lattice/config.toml` can't redirect your API key, image folder, or microphone. Those settings are global-config only.
-- Sessions, audit log, and config are owner-only (600/700) regardless of umask.
+---
 
-Full policy table: `docs/permissions.md`. Threat model and known gaps: `SECURITY.md`.
+## Voice
 
-## Documentation
+| Command | You | Lattice |
+|---|---|---|
+| `/voice chat` | speak | talks back |
+| `/voice dictate` | speak | answers in text |
+| `/voice listen` | type | talks back |
+| `/voice off` | type | answers in text |
 
-- **`docs/user-guide.md` — start here: every command explained in plain language, with examples**
-- `docs/architecture.md` — module map and data flow
-- `docs/configuration.md` — every setting and its precedence
-- `docs/tools.md` — native tool reference
-- `docs/mcp.md` — MCP setup and trust model
-- `docs/permissions.md` — the mode × risk policy table in full
-- `docs/providers.md` — the provider abstraction, adding a second backend
-- `docs/terminal-ui.md` — layout, keybindings, theming
-- `docs/voice.md` — voice modes, push-to-talk, microphones, privacy
-- `docs/mascot.md` — the mascot, visuals, `[ui]` settings, rebuilding the art
-- `docs/costs.md` — spend tracking, balance, budgets
-- `docs/images.md` — `/imagine`, `/image`, the agent's image tool, privacy
-- `SECURITY.md` — threat model, defenses, and known gaps
-- `docs/troubleshooting.md`
+**To talk:** press **Enter** on an empty line, speak, then press **Enter** again. Lattice shows what it heard before acting on it.
 
-## Development
+Voice runs **on your own computer** by default, free and offline. Install it once with `scripts/voice/install-local-voice.sh`. Your audio is never saved. More: [docs/voice.md](docs/voice.md).
+
+---
+
+## Kit10
+
+In terminals that can show images, **Kit10** appears beside the Lattice logo and acts out what's happening: thinking, reading, typing, building, painting, listening, speaking. Type `/kit10` to see every pose and what it means, or `/kit10 off` to turn her off. More: [docs/mascot.md](docs/mascot.md).
+
+---
+
+## Is it safe?
+
+Lattice has real access to your files and terminal, so safety comes first:
+
+- **It stays in your project.** It can't read or change files outside the folder you're working in, including through shortcuts (symlinks).
+- **It asks before risky actions** in every mode, and you can see every decision later with `lattice audit`.
+- **It protects your secrets.** It asks before opening `.env` files, keys, or credentials, and never writes your API key to a log.
+- **A downloaded project can't take over.** A repo's own settings can make Lattice *stricter*, never looser. It can't change where your key is sent, your spending limits, or your microphone.
+- **You can undo its last change** with `/undo`, even without git.
+
+The full threat model, including the known gaps: [SECURITY.md](SECURITY.md).
+
+---
+
+## Something not working?
+
+| Problem | Fix |
+|---|---|
+| `VENICE_API_KEY is not set` | Run `lattice setup` |
+| It chats but never edits files | Your model can't use tools. Run `/model` and pick one from the list. |
+| A reply stops mid-sentence | `lattice config set generation.max_tokens 8192` |
+| No Kit10 or no images | Your terminal can't show images. Try Kitty, WezTerm, Ghostty, or Konsole. |
+| Anything else | Run `lattice doctor`, then see [docs/troubleshooting.md](docs/troubleshooting.md) |
+
+---
+
+## Learn more
+
+| Guide | What's in it |
+|---|---|
+| **[User Guide](docs/user-guide.md)** | **Start here.** Every command explained, with examples and recipes. |
+| [Configuration](docs/configuration.md) | Every setting and where it lives |
+| [Costs](docs/costs.md) | Spending, balances, budgets, backup keys |
+| [Images](docs/images.md) | `/imagine` options and privacy |
+| [Voice](docs/voice.md) | Voice modes, microphones, the local engine |
+| [Kit10](docs/mascot.md) | The mascot and display settings |
+| [Permissions](docs/permissions.md) | Exactly when Lattice asks and why |
+| [MCP](docs/mcp.md) | Adding tool servers |
+| [Troubleshooting](docs/troubleshooting.md) | Fixes for common problems |
+| [Security](SECURITY.md) | What Lattice protects against, and what it doesn't |
+
+**For developers:** [architecture](docs/architecture.md), [tools](docs/tools.md), [providers](docs/providers.md), [terminal UI](docs/terminal-ui.md).
 
 ```bash
-npm run typecheck   # tsc --noEmit
-npm run dev          # run directly with tsx, no build step
-npm test              # vitest — unit + fixture-based integration tests
+npm run dev         # run from source, no build step
+npm test            # run the test suite
+npm run typecheck   # check types
 ```
 
-Adding a second OpenAI-compatible provider (OpenRouter, LM Studio, Ollama) means implementing `ModelProvider` in `src/providers/` — the agent loop, tools, and UI are provider-agnostic.
+---
 
 ## Creator & License
 
