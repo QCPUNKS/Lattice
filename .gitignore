@@ -10,3 +10,5 @@ dist/
 .lattice/
 .DS_Store
 .directory
+__pycache__/
+*.pyc
