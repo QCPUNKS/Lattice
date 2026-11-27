@@ -16,6 +16,8 @@ import { startActivity, setActivityStage, type ActivityHandle, type ActivityStat
 import { applySessionBackground } from "../ui/terminal-background.js";
 import { formatUsd } from "../billing/pricing.js";
 import { theme } from "../ui/theme.js";
+import { FEATURES } from "../ui/features.js";
+import { createReplyWriter } from "../ui/markdown/reply-writer.js";
 import { cancelActiveForegroundCommand } from "../tools/shell.js";
 import * as sessions from "../sessions/index.js";
 import { handleSlashCommand, type ReplState } from "./slash-commands.js";
@@ -139,7 +141,7 @@ export async function runInteractive(
     try {
       const transcript = await runtime.voice.captureUtterance(rl, currentAbort.signal);
       if (!transcript) return "";
-      console.log(theme.dim("  you said: ") + sanitizeForTerminal(transcript));
+      console.log(`  ${FEATURES.voice.accent(FEATURES.voice.glyph)} ${theme.dim("you said")}  ${sanitizeForTerminal(transcript)}`);
       return transcript;
     } catch (err) {
       console.log(theme.error(`  [voice] ${(err as Error).message}`));
@@ -192,16 +194,18 @@ export async function runInteractive(
     const spentBefore = runtime.spend.ledger.sessionTotal().usd;
     const speech = runtime.voice.beginResponse();
     act("thinking", "thinking…");
+    const reply = createReplyWriter();
     try {
       await runtime.loop.run(state.session.history, runtime.ctx, {
         onTextDelta: (delta) => {
           if (activity) quiet();
-          stdout.write(sanitizeForTerminal(delta));
+          reply.push(sanitizeForTerminal(delta));
           speech.onText(delta);
         },
         onToolCallStart: (name, args) => {
           speech.onPause();
           quiet();
+          reply.finish();
           console.log();
           console.log(theme.tool(`  → ${sanitizeForTerminal(name)}`) + theme.dim(` ${truncateArgs(sanitizeForTerminal(args))}`));
           act(activityForTool(name), labelForTool(name, args));
@@ -219,11 +223,13 @@ export async function runInteractive(
           approxTokens = tokens;
         },
       }, currentAbort.signal);
+      reply.finish();
       // After Ctrl+C, stay silent — don't release held-back text.
       if (!currentAbort.signal.aborted) speech.onEnd();
       console.log("\n");
     } catch (err) {
       quiet();
+      reply.finish();
       if ((err as Error).name === "BudgetExceededError") {
         console.log(theme.warning(`\n  ${(err as Error).message}\n`));
       } else {

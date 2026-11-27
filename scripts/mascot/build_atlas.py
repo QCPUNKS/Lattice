@@ -36,6 +36,7 @@ ASSETS = ROOT / "assets" / "mascot"
 # A pixel is "background" when its color is within this distance (sum of
 # per-channel differences) of the sheet background sampled at the region edge.
 BACKGROUND_TOLERANCE = 42
+
 # Enclosed pockets (e.g. between an arm and the body) are only cleared when
 # they're very close to the background color, so dark outfit details survive.
 ENCLOSED_TOLERANCE = 16

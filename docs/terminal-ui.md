@@ -46,4 +46,26 @@ tokens: 4.2k │ tools: 25 │ model: deepseek-v4-flash-0731 │ mode: normal �
 - `renderBox(kind, title, lines)` — titled box for tool/edit/browser panels (`src/ui/terminal.ts`)
 - `colorizeDiff(unifiedDiff)` — green/red unified diff coloring (`src/ui/diff.ts`), used by `/diff` and `git diff` passthrough
 
-Streamed model text is printed raw (no markdown post-processing) to keep streaming simple and reliable — the priority order in the spec puts reliability and functionality ahead of visual polish, and re-coloring already-printed terminal output mid-stream is exactly the kind of complexity that trades reliability for looks.
+## Rendered replies
+
+Model replies are rendered as markdown **while they stream** (`src/ui/markdown/`), without ever re-coloring text that's already on screen:
+
+- **Prose streams token by token.** Formatting markers are swapped for styling as they arrive. The only text ever held back is a marker whose meaning depends on the next character or two (a lone `*`, a `#` at the start of a line, an unfinished `[link](`).
+- **Code blocks** are framed with their language and syntax-highlighted a line at a time (`highlight.ts`, dependency-free).
+- **Tables** are buffered until they end, then drawn aligned in a box. A table wider than the terminal is printed as its original rows instead of being truncated.
+- **Links keep their address visible**, so a label can't disguise where a link goes.
+- **Output that isn't a terminal** (piped `lattice exec`, logs) gets the raw markdown source, not escape codes.
+
+The renderer adds styling only. Untrusted model text is sanitized before it reaches the renderer, exactly as before. A unit test checks that every way of chunking a reply displays the same result.
+
+## Feature identity
+
+Each major feature has one accent, one glyph and a framed section (`src/ui/features.ts`), so the screen always shows which part of Lattice you're in:
+
+| Feature | Accent | Glyph | Where it shows |
+|---|---|---|---|
+| Imagine | violet | ✦ | `/imagine` section frame, twinkling spinner, saved/cost summary |
+| Arena | amber | ◈ | race header, scorecard box |
+| Voice | teal | ◉ | prompt mic marker, "you said" line, listening/speaking spinner |
+
+Chat stays in the brand cyan. Feature identity only changes how a feature looks, never how it behaves.

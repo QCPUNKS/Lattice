@@ -14,6 +14,7 @@ import { execCaptured } from "../tools/shell.js";
 import * as actions from "./actions.js";
 import { colorizeDiff } from "../ui/diff.js";
 import { theme } from "../ui/theme.js";
+import { featureOpening } from "../ui/features.js";
 import { displayName } from "../mcp/manager.js";
 import { runArena, type ArenaParticipantSpec } from "../arena/orchestrator.js";
 import { ArenaLiveView, formatArenaStatus } from "../ui/arena-live.js";
@@ -399,7 +400,8 @@ export async function handleSlashCommand(
         return "handled";
       }
 
-      console.log(theme.dim(`Racing ${participants.length} models on: ${promptText}\n`));
+      console.log(featureOpening("arena", `racing ${participants.length} models · ${promptText}`));
+      console.log();
       const view = new ArenaLiveView(participants.map((p) => p.model));
       try {
         const run = await runArena(cfg, promptText, participants, {

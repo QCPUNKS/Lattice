@@ -7,6 +7,7 @@ import { expandHome } from "../config/index.js";
 import { setGlobalConfigValue } from "../config/writer.js";
 import type { VeniceHttp } from "../providers/venice-http.js";
 import { theme } from "../ui/theme.js";
+import { featureClosing, featureLine } from "../ui/features.js";
 import { encodeKittyPng, inlineImageColumns, supportsKittyGraphics } from "../ui/kitty-graphics.js";
 import { ImageModelCatalog, type ImageModelInfo } from "./image-catalog.js";
 import { VeniceImageClient, type GeneratedImages } from "./image-client.js";
@@ -229,16 +230,20 @@ export class ImageService {
         process.stdout.write(encodeKittyPng(png, columns) + "\n");
       }
     }
-    for (const f of files) console.log(theme.success("  saved ") + f);
+    for (const f of files) console.log(featureLine("imagine", theme.success("saved ") + f));
+    if (generated.blurred) {
+      console.log(featureLine("imagine", theme.warning("Venice safe mode blurred this result. Use --nsfw to generate unblurred.")));
+    }
+    if (generated.contentViolation) {
+      console.log(featureLine("imagine", theme.error("Venice flagged this output as violating its terms of service.")));
+    }
     const facts = [
       result.model.id,
       `seed ${generated.seed}`,
       generated.durationMs !== null ? `${(generated.durationMs / 1000).toFixed(1)}s` : null,
       result.estimatedCostUsd !== null ? `~$${result.estimatedCostUsd.toFixed(2)}` : null,
     ].filter(Boolean);
-    console.log(theme.dim(`  ${facts.join("  ·  ")}`));
-    if (generated.blurred) console.log(theme.warning("  Venice safe mode blurred this result. Use --nsfw to generate unblurred."));
-    if (generated.contentViolation) console.log(theme.error("  Venice flagged this output as violating its terms of service."));
+    console.log(featureClosing("imagine", theme.dim(facts.join("  ·  "))));
   }
 }
 

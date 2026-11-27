@@ -17,6 +17,7 @@ import { theme } from "../../ui/theme.js";
 import { renderBox } from "../../ui/terminal.js";
 import { colorizeDiff } from "../../ui/diff.js";
 import { formatOutcome } from "../../ui/arena-live.js";
+import { FEATURES, featureOpening } from "../../ui/features.js";
 
 export function renderScorecard(run: ArenaRun): string {
   const lines = run.results.map(
@@ -25,7 +26,8 @@ export function renderScorecard(run: ArenaRun): string {
       `  files:${r.filesChanged}  +${r.insertions}/-${r.deletions}  ` +
       `tokens:${r.tokensUsed}  time:${(r.durationMs / 1000).toFixed(1)}s`,
   );
-  return renderBox("arena", run.prompt.slice(0, 60), lines, theme.primary);
+  const arena = FEATURES.arena;
+  return renderBox(`${arena.glyph} ${arena.name}`, run.prompt.slice(0, 60), lines, arena.accent);
 }
 
 /** What to do after a race, by scorecard number. `prefix` is "/arena" in the REPL, "lattice arena" in a shell. */
@@ -53,7 +55,6 @@ export function parseModelSelection(input: string, catalog: readonly string[]): 
   if (picked.length < 2) return { ok: false, error: "Pick at least 2 models to race, e.g. 1 3" };
   return { ok: true, models: picked };
 }
-
 
 export interface ParsedArenaArgs {
   positional: string[];
@@ -193,7 +194,8 @@ export async function runArenaCommand(
     return ExitCode.INVALID_USAGE;
   }
 
-  console.log(theme.dim(`Racing ${participants.length} models on: ${promptText}\n`));
+  console.log(featureOpening("arena", `racing ${participants.length} models · ${promptText}`));
+  console.log();
 
   try {
     const run = await runArena(cfg, promptText, participants, {

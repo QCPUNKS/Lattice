@@ -3,6 +3,7 @@
 
 import type { LatticeConfig } from "../config/index.js";
 import { sanitizeForTerminal } from "../ui/sanitize.js";
+import { createReplyWriter } from "../ui/markdown/reply-writer.js";
 import type { Runtime } from "./runtime.js";
 import { buildSystemPrompt } from "../agent/system-prompt.js";
 import type { ChatMessage } from "../providers/types.js";
@@ -20,19 +21,23 @@ export async function runNonInteractive(cfg: LatticeConfig, runtime: Runtime, pr
     { role: "user", content: promptText },
   ];
 
+  const reply = createReplyWriter();
   try {
     await runtime.loop.run(history, runtime.ctx, {
-      onTextDelta: (delta) => process.stdout.write(sanitizeForTerminal(delta)),
+      onTextDelta: (delta) => reply.push(sanitizeForTerminal(delta)),
       onToolCallStart: (name, args) => {
+        reply.finish();
         process.stderr.write(`\n→ ${name} ${args.slice(0, 100)}\n`);
       },
       onToolResult: (_name, result, isError) => {
         process.stderr.write(`${isError ? "✗" : "✓"} ${result.split("\n")[0].slice(0, 120)}\n`);
       },
     });
+    reply.finish();
     process.stdout.write("\n");
     return ExitCode.SUCCESS;
   } catch (err) {
+    reply.finish();
     if (err instanceof PermissionDeniedError) {
       process.stderr.write(`\nPermission denied: ${err.message}\n`);
       return ExitCode.PERMISSION_DENIED;

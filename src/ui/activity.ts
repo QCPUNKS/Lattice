@@ -3,6 +3,7 @@
 
 import { theme } from "./theme.js";
 import { sanitizeForTerminal } from "./sanitize.js";
+import { FEATURES } from "./features.js";
 
 /**
  * What Lattice is doing right now. This is the single source of truth the
@@ -44,6 +45,21 @@ export function setActivityStage(next: ActivityStage | null): void {
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 const FRAME_MS = 80;
 
+interface SpinnerStyle {
+  frames: string[];
+  color: (text: string) => string;
+}
+
+const DEFAULT_SPINNER: SpinnerStyle = { frames: SPINNER_FRAMES, color: theme.primary };
+
+/** Feature states wear their feature's accent (and motion), so the spinner alone says where you are. */
+const SPINNER_BY_STATE: Partial<Record<ActivityState, SpinnerStyle>> = {
+  painting: { frames: ["✧", "✦", "✶", "✷", "✸", "✷", "✶", "✦"], color: FEATURES.imagine.accent },
+  listening: { frames: ["◉", "◉", "◉", "◎", "○", "◎"], color: FEATURES.voice.accent },
+  transcribing: { frames: SPINNER_FRAMES, color: FEATURES.voice.accent },
+  speaking: { frames: ["▁", "▃", "▅", "▇", "▅", "▃"], color: FEATURES.voice.accent },
+};
+
 export interface ActivityHandle {
   update(label: string): void;
   stop(): void;
@@ -78,9 +94,9 @@ export function startActivity(state: ActivityState, label: string): ActivityHand
 
   let frame = 0;
   let current = label;
-  const color = state === "listening" ? theme.error : theme.primary;
+  const { frames, color } = SPINNER_BY_STATE[state] ?? DEFAULT_SPINNER;
   const draw = () => {
-    const glyph = state === "listening" ? "●" : SPINNER_FRAMES[frame % SPINNER_FRAMES.length];
+    const glyph = frames[frame % frames.length];
     process.stdout.write(`\r\x1b[2K  ${color(glyph)} ${theme.dim(sanitizeForTerminal(current).replace(/\n/g, " "))}`);
     frame++;
   };

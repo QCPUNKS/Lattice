@@ -7,6 +7,7 @@ import { spawn } from "node:child_process";
 import { theme } from "../../ui/theme.js";
 import { expandHome } from "../../config/index.js";
 import { startActivity } from "../../ui/activity.js";
+import { featureClosing, featureOpening } from "../../ui/features.js";
 import type { ImageService, ImageShape, ImagineOptions } from "../../media/image-service.js";
 import type { ImageModelInfo } from "../../media/image-catalog.js";
 
@@ -159,9 +160,13 @@ export async function runImagine(
     options = parsed.options;
   }
 
+  console.log(featureOpening("imagine", options.prompt));
   if (!service.isConfigured()) {
-    console.log(theme.dim("First-time image setup:\n"));
-    if (!(await service.runSetup(rl))) return;
+    console.log(theme.dim("  First-time image setup:\n"));
+    if (!(await service.runSetup(rl))) {
+      console.log(featureClosing("imagine", theme.dim("setup cancelled")));
+      return;
+    }
     console.log();
   }
 
@@ -172,7 +177,7 @@ export async function runImagine(
     service.display(result);
   } catch (err) {
     activity.stop();
-    console.log(theme.error(`  ${(err as Error).message}`));
+    console.log(featureClosing("imagine", theme.error((err as Error).message)));
   }
 }
 

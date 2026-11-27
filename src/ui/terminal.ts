@@ -4,11 +4,8 @@
 import chalk from "chalk";
 import type { LatticeConfig } from "../config/index.js";
 import { theme } from "./theme.js";
-
-function stripAnsiLength(s: string): number {
-  // eslint-disable-next-line no-control-regex
-  return s.replace(/\x1b\[[0-9;]*m/g, "").length;
-}
+import { FEATURES } from "./features.js";
+import { visibleLength as stripAnsiLength } from "./text-width.js";
 
 export interface BannerInfo {
   toolCount: number;
@@ -38,7 +35,7 @@ export function renderBanner(cfg: LatticeConfig, info: BannerInfo): string {
 
 /** `voiceInput` adds a mic marker so it's always visible that Enter-on-empty records. */
 export function prompt(voiceInput = false): string {
-  return theme.success("lattice") + (voiceInput ? theme.error(" ●") : "") + theme.dim(" › ");
+  return theme.success("lattice") + (voiceInput ? FEATURES.voice.accent(` ${FEATURES.voice.glyph}`) : "") + theme.dim(" › ");
 }
 
 /** Draws a titled box around `lines`, matching the spec §56 tool/edit/browser panel mockups. */
