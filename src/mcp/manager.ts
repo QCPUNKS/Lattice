@@ -9,6 +9,7 @@ import type { ToolRegistry, ToolContext } from "../tools/registry.js";
 import type { ResolvedMcpServer } from "./config.js";
 import type { CommandRisk } from "../agent/command-classifier.js";
 import { mcpToolRisk, applyRiskOverride, describeMcpCall, type ToolHints } from "./risk.js";
+import { readVersion } from "../cli/help.js";
 
 const MAX_MCP_OUTPUT_CHARS = 20_000;
 
@@ -111,7 +112,7 @@ export class McpManager {
   }
 
   private async connectOne(entry: ResolvedMcpServer): Promise<Client> {
-    const client = new Client({ name: "lattice", version: "0.1.0" }, { capabilities: {} });
+    const client = new Client({ name: "lattice", version: readVersion() }, { capabilities: {} });
 
     if (entry.config.command) {
       const transport = new StdioClientTransport({
