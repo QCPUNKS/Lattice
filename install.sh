@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# All Rights Reserved: Jevante Boxley
-# QCPUNKS SECTOR
+# Copyright (c) 2026 Jevante Boxley
+# SPDX-License-Identifier: Apache-2.0
 
 # Installs Lattice: checks prerequisites, installs dependencies, builds, and
 # links the `lattice` command onto PATH. Safe to re-run.

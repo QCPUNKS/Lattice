@@ -1,5 +1,5 @@
-<!-- All Rights Reserved: Jevante Boxley -->
-<!-- QCPUNKS SECTOR -->
+<!-- Copyright (c) 2026 Jevante Boxley -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 
 # LATTICE
 
@@ -193,3 +193,9 @@ npm test              # vitest — unit + fixture-based integration tests
 ```
 
 Adding a second OpenAI-compatible provider (OpenRouter, LM Studio, Ollama) means implementing `ModelProvider` in `src/providers/` — the agent loop, tools, and UI are provider-agnostic.
+
+## Creator & License
+
+Lattice was created by **Jevante Boxley**.
+
+Licensed under the [Apache License 2.0](LICENSE). You're free to use, modify, and share it, as long as you keep the copyright notices and the [NOTICE](NOTICE) file that credits the creator, and mark any files you change. The Lattice name and the Kit10 mascot aren't covered by the license, so forks need their own name.

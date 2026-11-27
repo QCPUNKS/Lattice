@@ -1,5 +1,5 @@
-// All Rights Reserved: Jevante Boxley
-// QCPUNKS SECTOR
+// Copyright (c) 2026 Jevante Boxley
+// SPDX-License-Identifier: Apache-2.0
 
 import { spawn, ChildProcess } from "node:child_process";
 import { constants as osConstants } from "node:os";

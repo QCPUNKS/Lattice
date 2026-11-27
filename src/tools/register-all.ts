@@ -1,5 +1,5 @@
-// All Rights Reserved: Jevante Boxley
-// QCPUNKS SECTOR
+// Copyright (c) 2026 Jevante Boxley
+// SPDX-License-Identifier: Apache-2.0
 
 import { ToolRegistry } from "./registry.js";
 import * as fsTools from "./filesystem.js";

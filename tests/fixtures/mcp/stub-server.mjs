@@ -1,5 +1,5 @@
-// All Rights Reserved: Jevante Boxley
-// QCPUNKS SECTOR
+// Copyright (c) 2026 Jevante Boxley
+// SPDX-License-Identifier: Apache-2.0
 
 // A minimal MCP server for tests: a code-execution tool that leaves a marker
 // file when it actually runs, and a read-only tool.

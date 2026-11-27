@@ -1,5 +1,5 @@
-// All Rights Reserved: Jevante Boxley
-// QCPUNKS SECTOR
+// Copyright (c) 2026 Jevante Boxley
+// SPDX-License-Identifier: Apache-2.0
 
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { VeniceHttp, isKeyExhausted } from "../../src/providers/venice-http.js";

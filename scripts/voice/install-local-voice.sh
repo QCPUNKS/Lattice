@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# All Rights Reserved: Jevante Boxley
-# QCPUNKS SECTOR
+# Copyright (c) 2026 Jevante Boxley
+# SPDX-License-Identifier: Apache-2.0
 #
 # Installs Lattice's local voice engine: free, offline speech-to-text
 # (faster-whisper) and text-to-speech (Kokoro) on this machine.

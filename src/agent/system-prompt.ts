@@ -1,5 +1,5 @@
-// All Rights Reserved: Jevante Boxley
-// QCPUNKS SECTOR
+// Copyright (c) 2026 Jevante Boxley
+// SPDX-License-Identifier: Apache-2.0
 
 export function buildSystemPrompt(workspace: string, mode: string, projectContext?: string): string {
   const base = `You are LATTICE, a terminal-native AI software engineering agent running directly on the user's development machine.

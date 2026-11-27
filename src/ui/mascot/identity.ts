@@ -1,5 +1,5 @@
-// All Rights Reserved: Jevante Boxley
-// QCPUNKS SECTOR
+// Copyright (c) 2026 Jevante Boxley
+// SPDX-License-Identifier: Apache-2.0
 
 /** The mascot's name, everywhere she's presented to the user. Code calls the role "mascot"; this is who she is. */
 export const MASCOT_NAME = "Kit10";

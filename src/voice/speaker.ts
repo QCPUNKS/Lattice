@@ -1,5 +1,5 @@
-// All Rights Reserved: Jevante Boxley
-// QCPUNKS SECTOR
+// Copyright (c) 2026 Jevante Boxley
+// SPDX-License-Identifier: Apache-2.0
 
 import { MAX_TTS_CHARS } from "../media/speech-client.js";
 import { splitForSynthesis } from "./speakable-text.js";

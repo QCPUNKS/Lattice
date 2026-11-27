@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-# All Rights Reserved: Jevante Boxley
-# QCPUNKS SECTOR
+# Copyright (c) 2026 Jevante Boxley
+# SPDX-License-Identifier: Apache-2.0
 """
 Lattice local voice service: speech-to-text (faster-whisper) and
 text-to-speech (Kokoro, ONNX) on this machine. Free, offline, private.
